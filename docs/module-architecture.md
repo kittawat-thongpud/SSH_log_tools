@@ -71,6 +71,7 @@ graph TD
 - computation.tail.block_size — routes.py (tail implementation)
 - ui.record_form.grid — static/record_form.js (modal image grid)
 - ui.logs.scan_table — static/app.js (match counts in register groups)
+- ui.logs.cat_text_paths — static/app.js (use cat for text register paths; list only for images)
 - api.profile_paths.pipe_split — app/routes.py (split `| grep` into grep_chain; capture cmd_suffix for cat/list)
 
 Keep this graph updated when imports or boundaries change.

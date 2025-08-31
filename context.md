@@ -81,6 +81,7 @@ Notes:
 - Handlers: Rotating file handler respects `max_bytes` and `backup_count`; optional console handler with configurable level. Rotated files are prefixed with the index, e.g., `1-YYYY-MM-DD.log`.
 
 ## 6) Change Journal (append newest on top)
+- 2025-09-02 — Use SSH cat directly for text profile paths instead of list to prevent command suffix errors.
 - 2025-09-02 — Added optional command suffix for registered paths and API support to append it after SSH cat/list commands.
 - 2025-09-02 — Auto-split profile registered paths on `| grep` into grep chains.
 - 2025-09-02 — Simplified Logs scan table to a single column and appended match counts to register groups.

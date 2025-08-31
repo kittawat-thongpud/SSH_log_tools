@@ -59,7 +59,7 @@ CTX_PRIORITY_MODE: recent-first
 - app/db.py: SQLite schema init and helpers (profiles, profile_paths, records, record_images).
 - app/views.py: Serves index.html, profiles.html, records.html.
 - templates + static: Simple pages calling REST endpoints.
-- app/static/app.js: runs profile scans and renders a single-column scan table with match counts.
+- app/static/app.js: runs profile scans (cat for text paths, list for image paths) and renders a single-column scan table with match counts.
 - _record_form.html + record_form.js: reusable modal for creating/updating records with a grid-based image gallery showing filenames.
 
 ## External Dependencies

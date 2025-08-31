@@ -208,42 +208,40 @@ async function runAll(){
       for(const pathObj of paths){
         const typ = String(pathObj.type||'text').toLowerCase();
         // Expand files first (auto-detect if needed)
-        const qlist = new URLSearchParams();
-        qlist.set('pattern', pathObj.path);
-        qlist.set('type', typ==='image' ? 'image' : 'auto');
-        qlist.set('limit', String(maxLines));
-        if(pathObj.cmd_suffix) qlist.set('cmd_suffix', pathObj.cmd_suffix);
-        const listRes = await fetchJSON(`/api/profiles/${p.id}/list?`+qlist.toString());
-        if(!listRes.ok || (listRes.data && listRes.data.error)){
-          const errMsg = (listRes.data && listRes.data.error) || 'List failed';
-          const msg = `Stopped ${p.name}: ${errMsg}`;
-          setRunMessage(msg, 'error');
-          alert(msg);
-          break;
-        }
-        const files = (listRes.data && listRes.data.files) || [];
-        dbg('files', pathObj.path, files.length);
-        if(typ === 'image' || (listRes.data && listRes.data.type === 'image')){
-          addImageResultsUnder(tbody, p.id, p.name, pathObj.path, files);
-          continue;
-        }
-        // Text flow: tail each file individually, honoring grep_chain
-        for(const fp of files){
-          const q = new URLSearchParams();
-          q.set('pattern', fp);
-          q.set('lines', String(maxLines));
-          (pathObj.grep_chain||[]).forEach(g=> q.append('grep', g));
-          if(pathObj.cmd_suffix) q.set('cmd_suffix', pathObj.cmd_suffix);
-          const res = await fetchJSON(`/api/profiles/${p.id}/cat?`+q.toString());
-          if(!res.ok || (res.data && res.data.error)){
-            const errMsg = (res.data && res.data.error) || 'Connection or command failed';
+        if(typ === 'image'){
+          const qlist = new URLSearchParams();
+          qlist.set('pattern', pathObj.path);
+          qlist.set('type', 'image');
+          qlist.set('limit', String(maxLines));
+          if(pathObj.cmd_suffix) qlist.set('cmd_suffix', pathObj.cmd_suffix);
+          const listRes = await fetchJSON(`/api/profiles/${p.id}/list?`+qlist.toString());
+          if(!listRes.ok || (listRes.data && listRes.data.error)){
+            const errMsg = (listRes.data && listRes.data.error) || 'List failed';
             const msg = `Stopped ${p.name}: ${errMsg}`;
             setRunMessage(msg, 'error');
             alert(msg);
-            break; // cancel remaining files for this path/profile
+            break;
           }
-          addTextFileResultsUnder(tbody, p.id, p.name, pathObj.path, fp, (res.ok && res.data.lines)||[], maxLines);
+          const files = (listRes.data && listRes.data.files) || [];
+          dbg('files', pathObj.path, files.length);
+          addImageResultsUnder(tbody, p.id, p.name, pathObj.path, files);
+          continue;
         }
+        // Text flow: tail path directly, honoring grep_chain
+        const q = new URLSearchParams();
+        q.set('pattern', pathObj.path);
+        q.set('lines', String(maxLines));
+        (pathObj.grep_chain||[]).forEach(g=> q.append('grep', g));
+        if(pathObj.cmd_suffix) q.set('cmd_suffix', pathObj.cmd_suffix);
+        const res = await fetchJSON(`/api/profiles/${p.id}/cat?`+q.toString());
+        if(!res.ok || (res.data && res.data.error)){
+          const errMsg = (res.data && res.data.error) || 'Connection or command failed';
+          const msg = `Stopped ${p.name}: ${errMsg}`;
+          setRunMessage(msg, 'error');
+          alert(msg);
+          break; // cancel remaining paths for this profile
+        }
+        addPathResultsUnder(tbody, p.id, p.name, pathObj.path, (res.ok && res.data.lines)||[], maxLines);
       }
     }
     setRunMessage('Done', 'info');
