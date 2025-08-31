@@ -28,6 +28,11 @@ DEFAULT_CONFIG = {
         "title": "SSH Log Tools",
         "icon_path": ""
     },
+    "export": {
+        "cell_width": 18,  # Excel column width for image column
+        "cell_height": 96,  # Row height (points) for rows with images
+        "image_column": "H",  # Default column letter for images
+    },
 }
 
 
@@ -84,6 +89,11 @@ def load_config(path: str = "config.json") -> Dict[str, Any]:
     merged_ui = DEFAULT_CONFIG.get("ui", {}).copy()
     merged_ui.update(user_ui or {})
     cfg["ui"] = merged_ui
+    # Deep-merge export block
+    user_export = user_cfg.get("export") if isinstance(user_cfg.get("export"), dict) else {}
+    merged_export = DEFAULT_CONFIG.get("export", {}).copy()
+    merged_export.update(user_export or {})
+    cfg["export"] = merged_export
     # Normalize logs
     logs = []
     for item in cfg.get("logs", []) or []:

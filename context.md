@@ -65,6 +65,11 @@ All keys are optional; defaults are applied by `app/config.py`. Paths are resolv
     "message": "App is begin!!", // Diagnostic text
     "title": "SSH Log Tools",    // Window title
     "icon_path": ""              // Optional path to tray/window icon (.ico/.png)
+  },
+  "export": {                    // Excel export settings
+    "cell_width": 18,            // Column width for image column
+    "cell_height": 96,           // Row height (points) for image rows
+    "image_column": "H"         // Column letter containing images
   }
 }
 ```
@@ -73,6 +78,7 @@ Notes:
 - `logs` entries require `name` and `path`.
 - Logging uses a rotating file handler; if directory creation fails, falls back to CWD.
 - `console` controls a console handler (warnings and above) in addition to file logging.
+- Excel export sizing is controlled by the optional `export` block.
 
 ## 5) Observability & Logging
 - Startup: `main.py` calls `setup_logging()` and logs tray/server lifecycle events.

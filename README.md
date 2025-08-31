@@ -69,6 +69,11 @@ Create/edit `config.json` at the project root:
   "images_cache": {              // Remote images in-memory cache
     "ttl": 60,                   // Seconds before re-fetch over SFTP
     "max_bytes": 20971520        // Total cache budget (20 MiB)
+  },
+  "export": {                   // Excel export options
+    "cell_width": 18,           // Column width for images column
+    "cell_height": 96,          // Row height (points) for image rows
+    "image_column": "H"        // Column letter containing images
   }
 }
 
@@ -82,6 +87,10 @@ Startup UI
 - Tray-only by default (no taskbar entry). Toggle panel with tray icon.
 - Panel shows server status and enables Start/Stop/Open actions.
 - Control via `ui.show_on_start`, `ui.message`, `ui.title`, `ui.icon_path` (.ico/.png).
+
+Excel Export
+- `/api/records/export` downloads an Excel file of records.
+- Image placement and sizing are configured via `export.cell_width`, `export.cell_height`, and `export.image_column`.
 
 API Overview
 - Logs

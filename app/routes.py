@@ -800,7 +800,16 @@ def export_records():
     import io
     from openpyxl import Workbook
     from openpyxl.drawing.image import Image as XLImage
+    from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor, AnchorMarker
     from openpyxl.worksheet.table import Table, TableStyleInfo
+    from openpyxl.styles import Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.utils.units import points_to_pixels, pixels_to_EMU
+    from openpyxl.drawing.spreadsheet_drawing import (
+        AnchorMarker,
+        OneCellAnchor,
+        XDRPositiveSize2D,
+    )
 
     wb = Workbook()
     ws = wb.active
@@ -820,8 +829,6 @@ def export_records():
     for col, h in enumerate(headers, start=1):
         ws.cell(row=1, column=col, value=h)
     img_col_idx = headers.index("Images") + 1
-    from openpyxl.utils import get_column_letter
-
     img_col_letter = get_column_letter(img_col_idx)
     ws.column_dimensions[img_col_letter].width = 18
 
@@ -857,16 +864,59 @@ def export_records():
                     IMG_SIZE = 128
                     img.width = IMG_SIZE
                     img.height = IMG_SIZE
-                    cell_ref = f"{img_col_letter}{row_idx}"
-                    ws.add_image(img, cell_ref)
                     ws.row_dimensions[row_idx].height = IMG_SIZE * 0.75
                     col_width = IMG_SIZE * 0.14
                     current = ws.column_dimensions[img_col_letter].width or 0
                     if current < col_width:
                         ws.column_dimensions[img_col_letter].width = col_width
+                    col_px = ws.column_dimensions[img_col_letter].width * 7
+                    row_px = points_to_pixels(ws.row_dimensions[row_idx].height)
+                    x_off = max((col_px - IMG_SIZE) / 2, 0)
+                    y_off = max((row_px - IMG_SIZE) / 2, 0)
+                    marker = AnchorMarker(
+                        col=img_col_idx - 1,
+                        row=row_idx - 1,
+                        colOff=pixels_to_EMU(x_off),
+                        rowOff=pixels_to_EMU(y_off),
+                    )
+                    img.anchor = OneCellAnchor(
+                        _from=marker,
+                        ext=XDRPositiveSize2D(
+                            pixels_to_EMU(IMG_SIZE), pixels_to_EMU(IMG_SIZE)
+                        ),
+                    )
+                    ws.add_image(img)
                 except Exception:
                     pass
         row_idx += 1
+    # auto-adjust column widths, center content, wrap text, and add borders
+    wrap_cols = {3, 6, 7}
+    thin = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
+    col_widths: dict[int, int] = {}
+    for row in ws.iter_rows(
+        min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column
+    ):
+        for cell in row:
+            if cell.value is not None:
+                col_widths[cell.column] = max(
+                    col_widths.get(cell.column, 0), len(str(cell.value))
+                )
+            align = Alignment(horizontal="center", vertical="center")
+            if cell.column in wrap_cols:
+                align = Alignment(
+                    horizontal="center", vertical="center", wrap_text=True
+                )
+            cell.alignment = align
+            cell.border = thin
+    for col, max_len in col_widths.items():
+        letter = get_column_letter(col)
+        width = max(ws.column_dimensions[letter].width or 0, max_len + 2)
+        ws.column_dimensions[letter].width = width
     # create Excel table for easier filtering/sorting
     try:
         ref = f"A1:J{ws.max_row}"

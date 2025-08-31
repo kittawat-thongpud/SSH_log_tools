@@ -27,6 +27,9 @@ This file replaces a traditional .env example by documenting environment variabl
 - `api.client_timeout_ms` (ms): Frontend fetch timeout. Default 30000.
 - `images_cache.ttl` (seconds): In-memory cache TTL for remote images. Default 60.
 - `images_cache.max_bytes` (bytes): Max total cache size. Default 20971520 (20 MiB).
+- `export.cell_width` (Excel units): Column width for the images column when exporting records. Default 18.
+- `export.cell_height` (points): Row height for rows containing images. Default 96.
+- `export.image_column` (letter): Column letter where images are placed. Default H.
 
 ## Runtime Values (Examples)
 These are examples to inform context; the app primarily reads config.json at runtime.
