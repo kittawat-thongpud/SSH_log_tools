@@ -100,7 +100,7 @@ if(typeof document!=='undefined'){
       form.addEventListener('submit', async (e)=>{
         e.preventDefault();
         const fd=new FormData(form);
-        const rid=fd.get('id');
+        const rid=form.elements['id'] ? String(form.elements['id'].value||'').trim() : '';
         const payload={
           profile_id:Number(fd.get('profile_id')||0),
           title:String(fd.get('title')||''),
@@ -114,7 +114,9 @@ if(typeof document!=='undefined'){
         if(rid){ url=`/api/records/${rid}`; method='PUT'; }
         const r=await fetch(url,{method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
         if(!r.ok){ alert('Save failed'); return; }
-        let rec=await r.json(); let recId=rid||rec.id;
+        const resp=await r.json().catch(()=>({}));
+        const recId=rid||resp.id;
+        if(!recId){ alert('Save failed'); return; }
         try{
           const imgsSel=JSON.parse(document.getElementById('selectedImagesJson').value||'[]');
           for(const rp of imgsSel){ await fetch(`/api/records/${recId}/image_remote`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({profile_id:payload.profile_id, path:rp})}); }
