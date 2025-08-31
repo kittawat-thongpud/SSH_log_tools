@@ -54,7 +54,7 @@ CTX_PRIORITY_MODE: recent-first
 - app/config.py: Reads config.json, validates/normalizes log entries, configures logging.
 - app/routes.py: APIs
   - Logs: list, tail, search, download
-  - Profiles: CRUD, paths CRUD, SSH cat+grep, FTP browse
+  - Profiles: CRUD, paths CRUD (auto-split `| grep` into grep_chain), SSH cat+grep, FTP browse
   - Records: CRUD and image upload
 - app/db.py: SQLite schema init and helpers (profiles, profile_paths, records, record_images).
 - app/views.py: Serves index.html, profiles.html, records.html.

@@ -81,10 +81,6 @@ Notes:
 - Handlers: Rotating file handler respects `max_bytes` and `backup_count`; optional console handler with configurable level. Rotated files are prefixed with the index, e.g., `1-YYYY-MM-DD.log`.
 
 ## 6) Change Journal (append newest on top)
-- 2025-09-02 — Simplified Logs scan table to a single column and appended match counts to register groups.
-- 2025-09-02 — Display selected images in a grid with filenames beneath thumbnails for clearer record forms.
-- 2025-09-02 — Fixed record form widget to correctly attach images from Records detail modal.
-- 2025-09-01 — Extracted reusable record form widget shared by Logs and Records pages.
 - 2025-08-30 — Switched to tray-only mode (no taskbar entry); control panel is shown/hidden via tray icon (default menu/double-click).
 - 2025-08-30 — Control panel redesign: colorful theme, status indicator, Start/Stop buttons auto-enable/disable, optional custom icon via `ui.icon_path`.
 - 2025-08-30 — Added optional startup control panel (diagnostic popup) with Start/Stop/Open/Minimize/Exit; configurable via `ui.*` in config.json.

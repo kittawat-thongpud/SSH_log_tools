@@ -46,8 +46,8 @@ sequenceDiagram
 - PUT `/api/profiles/<id>` — update profile fields
 - DELETE `/api/profiles/<id>` — delete profile
 - GET `/api/profiles/<id>/paths` — list registered paths `[ { id, path, grep_chain[] } ]`
-- POST `/api/profiles/<id>/paths` — add path `{ path, grep_chain[] }`
-- PUT `/api/profile_paths/<ppid>` — update `{ path? , grep_chain? }`
+- POST `/api/profiles/<id>/paths` — add path `{ path, grep_chain[] }` (path may include `| grep PAT` segments)
+- PUT `/api/profile_paths/<ppid>` — update `{ path? , grep_chain? }` (auto-splits `| grep` into grep_chain)
 - DELETE `/api/profile_paths/<ppid>` — delete path
 - GET `/api/profiles/<id>/cat?pattern=&grep=&lines=N` — remote tail last N lines (+optional grep), returns `{ lines[] }`
 - GET `/api/profiles/<id>/list?pattern=&type=auto|text|image&limit=N` — expand glob to files (filters by type)

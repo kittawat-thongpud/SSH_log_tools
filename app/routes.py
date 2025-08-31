@@ -74,6 +74,26 @@ def _infer_path_type(pattern: str) -> str:
     return "text"
 
 
+def _split_path_and_chain(raw: str) -> tuple[str, List[str]]:
+    """Split a registered path on '| grep' segments.
+
+    Returns the base path and a list of grep patterns. Non-grep segments
+    are ignored for safety.
+    """
+    if not raw:
+        return "", []
+    parts = [p.strip() for p in raw.split("|")]
+    base = parts[0]
+    chain: List[str] = []
+    for seg in parts[1:]:
+        seg = seg.strip()
+        if seg.lower().startswith("grep"):
+            pat = seg[4:].strip()
+            if pat:
+                chain.append(pat)
+    return base, chain
+
+
 def _tail_lines(path: str, lines: int = 200, encoding: str = "utf-8") -> List[str]:
     # Efficient tail implementation
     if lines <= 0:
@@ -338,26 +358,36 @@ def update_profile_path(ppid: int):
     sets: List[str] = []
     vals: List[Any] = []
     if "path" in data:
-        new_path = (data.get("path") or "").strip()
-        if not new_path:
+        raw_path = (data.get("path") or "").strip()
+        base, auto_chain = _split_path_and_chain(raw_path)
+        if not base:
             return jsonify({"error": "path required"}), 400
-        sets.append("path=?"); vals.append(new_path)
-        # If type not explicitly provided, re-infer from new path
+        sets.append("path=?"); vals.append(base)
+        # If type not explicitly provided, re-infer from base path
         if "type" not in data:
-            inferred = _infer_path_type(new_path)
+            inferred = _infer_path_type(base)
             sets.append("type=?"); vals.append(inferred)
-    if "grep_chain" in data:
+        gc = data.get("grep_chain")
+        if gc is None:
+            chain = auto_chain
+        else:
+            if isinstance(gc, list):
+                chain = [s for s in gc if s]
+            elif isinstance(gc, str):
+                chain = [s for s in gc.split(",") if s]
+            else:
+                chain = []
+            chain.extend(auto_chain)
+        sets.append("grep_chain=?"); vals.append(json.dumps(chain))
+    elif "grep_chain" in data:
         gc = data.get("grep_chain")
         if isinstance(gc, list):
-            try:
-                gc = json.loads(json.dumps(gc))
-            except Exception:
-                gc = []
+            chain = [s for s in gc if s]
         elif isinstance(gc, str):
-            gc = [s for s in gc.split(",") if s]
+            chain = [s for s in gc.split(",") if s]
         else:
-            gc = []
-        sets.append("grep_chain=?"); vals.append(json.dumps(gc))
+            chain = []
+        sets.append("grep_chain=?"); vals.append(json.dumps(chain))
     if "type" in data:
         t_raw = data.get("type")
         t = str(t_raw or "").lower().strip()
@@ -404,28 +434,30 @@ def add_profile_path(pid: int):
     if not prof:
         abort(404)
     data = request.get_json(force=True, silent=True) or {}
-    path = (data.get("path") or "").strip()
-    gc = data.get("grep_chain")
+    raw_path = (data.get("path") or "").strip()
+    base, auto_chain = _split_path_and_chain(raw_path)
+    extra = data.get("grep_chain")
+    if isinstance(extra, list):
+        chain = [s for s in extra if s] + auto_chain
+    elif isinstance(extra, str):
+        chain = [s for s in extra.split(",") if s] + auto_chain
+    else:
+        chain = auto_chain
     raw_t = data.get("type")
     t = str(raw_t or "").lower().strip() if isinstance(raw_t, str) else None
     if not t or t == "auto":
-        t = _infer_path_type(path)
+        t = _infer_path_type(base)
     if t not in ("text", "image"):
         t = "text"
-    if isinstance(gc, list):
-        try:
-            gc_s = json.dumps(gc)
-        except Exception:
-            gc_s = json.dumps([])
-    elif isinstance(gc, str):
-        gc_s = json.dumps([s for s in gc.split(",") if s])
-    else:
-        gc_s = json.dumps([])
-    if not path:
+    gc_s = json.dumps(chain)
+    if not base:
         return jsonify({"error": "path required"}), 400
     ts = int(time.time())
     conn = get_db()
-    conn.execute("INSERT INTO profile_paths(profile_id, path, grep_chain, type, created_at) VALUES(?,?,?,?,?)", (pid, path, gc_s, t, ts))
+    conn.execute(
+        "INSERT INTO profile_paths(profile_id, path, grep_chain, type, created_at) VALUES(?,?,?,?,?)",
+        (pid, base, gc_s, t, ts),
+    )
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
