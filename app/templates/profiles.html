@@ -82,9 +82,9 @@
       <section>
         <div class="panel" id="sshPanel">
           <h2>Query (SSH cat + grep)</h2>
-          <form id="queryForm">
-            <label>Pattern <input name="pattern" placeholder="/var/log/auth*.log" /></label>
-            <label>Grep <input name="grep" placeholder="ERROR" /></label>
+          <form id="queryForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end;">
+            <label style="flex:1 1 15rem;">Pattern <input name="pattern" placeholder="/var/log/auth*.log" /></label>
+            <label style="flex:1 1 12rem;">Suffix <input name="cmd_suffix" placeholder="grep ERROR" /></label>
             <button type="submit">Run</button>
           </form>
           <div id="sshMsg" class="alert" style="display:none"></div>
@@ -250,7 +250,7 @@
         // Do NOT call updatePanels(); keep current query panel visible
         const qr = document.querySelector('#resultTable tbody'); if(qr) qr.innerHTML='';
         const fr = document.querySelector('#ftpTable tbody'); if(fr) fr.innerHTML='';
-        const qf = document.getElementById('queryForm'); if(qf){ const inpP = qf.querySelector('input[name="pattern"]'); const inpG = qf.querySelector('input[name="grep"]'); if(inpP) inpP.value=''; if(inpG) inpG.value=''; }
+        const qf = document.getElementById('queryForm'); if(qf){ const inpP = qf.querySelector('input[name="pattern"]'); const inpS = qf.querySelector('input[name="cmd_suffix"]'); if(inpP) inpP.value=''; if(inpS) inpS.value=''; }
       });
       // Paths
       document.getElementById('btnAddPath').addEventListener('click', async ()=>{
@@ -323,15 +323,15 @@
         const rawPattern = (fd.get('pattern')||'').trim();
         if(!rawPattern){ msg.className='alert error'; msg.textContent='Pattern required (e.g., /var/log/*.log)'; msg.style.display='block'; return; }
         if(rawPattern === '/' ){ msg.className='alert info'; msg.textContent='"/" is a directory. Use a specific file path or a glob like /var/log/*.log'; msg.style.display='block'; return; }
-        const pattern = encodeURIComponent(rawPattern); const grep = encodeURIComponent(fd.get('grep'));
-        const r = await fetch(`/api/profiles/${SELECTED}/cat?pattern=${pattern}&grep=${grep}`);
+        const pattern = encodeURIComponent(rawPattern); const suffix = encodeURIComponent(fd.get('cmd_suffix'));
+        const r = await fetch(`/api/profiles/${SELECTED}/cat?pattern=${pattern}&cmd_suffix=${suffix}`);
         const data = await r.json();
         if(!r.ok){ msg.className='alert error'; msg.textContent = data.error||'SSH query failed'; msg.style.display='block'; return; }
         const tbody = document.querySelector('#resultTable tbody');
         tbody.innerHTML = '';
         (data.lines||[]).forEach((line,i)=>{
           const tr = document.createElement('tr');
-          tr.dataset.text=line; tr.dataset.pid=SELECTED; tr.dataset.pattern=fd.get('pattern'); tr.dataset.grep=fd.get('grep');
+          tr.dataset.text=line; tr.dataset.pid=SELECTED; tr.dataset.pattern=fd.get('pattern'); tr.dataset.suffix=fd.get('cmd_suffix');
           tr.innerHTML = `<td>${i+1}</td><td>${line.replace(/[<>]/g, s=>({'<':'&lt;','>':'&gt;'}[s]))}</td>`;
           tbody.appendChild(tr);
         });
@@ -367,7 +367,7 @@
         if(!ctxTarget) return;
         const pid = Number(ctxTarget.dataset.pid);
         const content = ctxTarget.dataset.text;
-        const payload = { profile_id: pid, title: 'Recorded log', file_path: ctxTarget.dataset.pattern, filter: ctxTarget.dataset.grep, content };
+        const payload = { profile_id: pid, title: 'Recorded log', file_path: ctxTarget.dataset.pattern, filter: ctxTarget.dataset.suffix, content };
         const r = await fetch('/api/records',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
         if(r.ok){ alert('Recorded. See Records page.'); }
       });
