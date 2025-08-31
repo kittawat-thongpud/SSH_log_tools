@@ -44,6 +44,7 @@
           </table>
         </div>
       </section>
+<<<<<<< ours
     <!-- Fullscreen Image Viewer -->
     <div id="imgViewer" class="img-viewer">
       <div class="inner">
@@ -141,4 +142,63 @@
   }
 </script>
 </body>
+=======
+    {% include '_record_form.html' %}
+    <script>
+      window.APP_CFG = {{ (app_cfg or {'apiTimeoutMs':30000}) | tojson }};
+      // mark active nav
+      (function(){
+        var path = location.pathname.replace(/\/+$/, '') || '/';
+        document.querySelectorAll('header nav a').forEach(function(a){
+          var href = a.getAttribute('href');
+          if(href === path) a.classList.add('active');
+        });
+      })();
+      // simple prefs
+      const PREF_NS='sshlt_';
+      function setPref(k,v){ try{ localStorage.setItem(PREF_NS+k, JSON.stringify(v)); }catch{} }
+      function getPref(k,d){ try{ const v=localStorage.getItem(PREF_NS+k); return v? JSON.parse(v): d; }catch{ return d; } }
+      let PROFILES=[];
+      let PROFILE_ID=getPref('records.PROFILE_ID','all');
+      async function loadProfiles(){
+        const d = await (await fetch('/api/profiles')).json();
+        PROFILES = d.profiles||[];
+        const sel = document.getElementById('profileSelect'); sel.innerHTML='';
+        sel.add(new Option('All profiles','all'));
+        PROFILES.forEach(p=> sel.add(new Option(p.name, p.id)));
+        sel.value = PROFILE_ID;
+      }
+      async function loadRecords(){
+        const r = await fetch('/api/records'); const data = await r.json();
+        const pm = {}; PROFILES.forEach(p=>pm[p.id]=p.name);
+        const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
+        (data.records||[])
+          .filter(rec => PROFILE_ID==='all' || rec.profile_id===Number(PROFILE_ID))
+          .forEach(rec=>{
+            const tr = document.createElement('tr');
+            const imgs = (rec.images||[]).map(i=>`<a href=\"${i.url||i.path}\" target=\"_blank\">img#${i.id}</a>`).join(', ');
+            const created = new Date((rec.created_at||0)*1000).toLocaleString();
+            const situationDate = rec.event_time ? new Date(rec.event_time*1000).toLocaleString() : '';
+            const logs = (rec.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const situation = rec.situation||'';
+            const desc = (rec.description||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            tr.innerHTML = `<td>${rec.id}</td><td>${pm[rec.profile_id]||''}</td><td>${rec.file_path||''}</td><td>${logs}</td><td>${rec.title||''}</td><td>${situation}</td><td>${desc}</td><td>${imgs}</td><td>${situationDate}</td><td>${created}</td><td><button data-act=\"del\" data-id=\"${rec.id}\" style=\"border-color:#991b1b\">Delete</button></td>`;
+            tr.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; openRecordDetail(rec); });
+            tb.appendChild(tr);
+          });
+      }
+      document.getElementById('tbl').addEventListener('click', async (e)=>{
+        const btn = e.target.closest('button'); if(!btn) return;
+        if(btn.dataset.act==='del'){
+          if(!confirm('Delete this record?')) return;
+          const rid = btn.dataset.id; const r = await fetch(`/api/records/${rid}`, { method:'DELETE' });
+          if(r.ok){ loadRecords(); } else { alert('Delete failed'); }
+        }
+      });
+      document.getElementById('profileSelect').addEventListener('change', (e)=>{ PROFILE_ID = e.target.value; setPref('records.PROFILE_ID', PROFILE_ID); loadRecords(); });
+      (async ()=>{ await loadProfiles(); await loadRecords(); })();
+    </script>
+    <script src="/static/record_form.js"></script>
+  </body>
+>>>>>>> theirs
   </html>

@@ -45,12 +45,12 @@ sequenceDiagram
 - POST `/api/profiles` — create profile `{ name, protocol=ssh|ftp, host, port, username, password }`
 - PUT `/api/profiles/<id>` — update profile fields
 - DELETE `/api/profiles/<id>` — delete profile
-- GET `/api/profiles/<id>/paths` — list registered paths `[ { id, path, grep_chain[] } ]`
-- POST `/api/profiles/<id>/paths` — add path `{ path, grep_chain[] }`
-- PUT `/api/profile_paths/<ppid>` — update `{ path? , grep_chain? }`
+- GET `/api/profiles/<id>/paths` — list registered paths `[ { id, path, grep_chain[], cmd_suffix } ]`
+- POST `/api/profiles/<id>/paths` — add path `{ path, grep_chain[], cmd_suffix? }` (path may include `| grep PAT` segments; trailing segment becomes cmd_suffix)
+- PUT `/api/profile_paths/<ppid>` — update `{ path? , grep_chain? , cmd_suffix? }` (auto-splits `| grep` into grep_chain and captures cmd_suffix)
 - DELETE `/api/profile_paths/<ppid>` — delete path
-- GET `/api/profiles/<id>/cat?pattern=&grep=&lines=N` — remote tail last N lines (+optional grep), returns `{ lines[] }`
-- GET `/api/profiles/<id>/list?pattern=&type=auto|text|image&limit=N` — expand glob to files (filters by type)
+- GET `/api/profiles/<id>/cat?pattern=&grep=&cmd_suffix=&lines=N` — remote tail last N lines (+optional grep/suffix), returns `{ lines[] }`
+- GET `/api/profiles/<id>/list?pattern=&type=auto|text|image&cmd_suffix=&limit=N` — expand glob to files (filters by type, optional suffix)
 - GET `/api/profiles/<id>/ping` — connectivity check `{ ok, error? }`
 - GET `/api/profiles/<id>/ftp/list?path=/` — list FTP directory
 

@@ -58,6 +58,7 @@
           <h2>Registered Paths</h2>
           <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
             <input id="newPath" type="text" placeholder="/var/log/*.log or /var/images/*.png" style="flex:1" />
+            <input id="newSuffix" type="text" placeholder="suffix cmd (optional)" style="width:180px" />
             <label style="display:flex; align-items:center; gap:6px;">
               Type
               <select id="newPathType">
@@ -72,7 +73,7 @@
             For Text type, the app tails last N lines. For Images, the app lists matching image files. Grep/pipelines apply only to Text.
           </div>
           <table id="pathsTable">
-            <thead><tr><th>Path</th><th style="width:120px;">Type</th><th style="width:180px;">Actions</th></tr></thead>
+            <thead><tr><th>Path</th><th>Suffix</th><th style="width:120px;">Type</th><th style="width:180px;">Actions</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -168,12 +169,13 @@
           const tr = document.createElement('tr'); tr.dataset.id = item.id;
           const tdPath = document.createElement('td');
           const span = document.createElement('span'); span.className='path-text'; span.textContent = item.path; tdPath.appendChild(span);
+          const tdSuffix = document.createElement('td'); tdSuffix.className='path-suffix'; tdSuffix.textContent = item.cmd_suffix||'';
           const tdType = document.createElement('td'); tdType.className='path-type'; tdType.textContent = (item.type||'text');
           const tdAct = document.createElement('td');
           const btnEdit = document.createElement('button'); btnEdit.textContent = 'Edit'; btnEdit.dataset.act='edit'; btnEdit.dataset.id=item.id;
           const btnDel = document.createElement('button'); btnDel.textContent = 'Delete'; btnDel.style.borderColor='#991b1b'; btnDel.dataset.act='delete'; btnDel.dataset.id=item.id;
           tdAct.appendChild(btnEdit); tdAct.appendChild(document.createTextNode(' ')); tdAct.appendChild(btnDel);
-          tr.appendChild(tdPath); tr.appendChild(tdType); tr.appendChild(tdAct); tb.appendChild(tr);
+          tr.appendChild(tdPath); tr.appendChild(tdSuffix); tr.appendChild(tdType); tr.appendChild(tdAct); tb.appendChild(tr);
         });
       }
       function updatePanels(){
@@ -252,11 +254,12 @@
       // Paths
       document.getElementById('btnAddPath').addEventListener('click', async ()=>{
         const input = document.getElementById('newPath'); const path = input.value.trim();
+        const suffixInput = document.getElementById('newSuffix'); const suffix = suffixInput.value.trim();
         const typ = (document.getElementById('newPathType').value||'text');
         if(!SELECTED){ alert('Select a profile first'); return; }
         if(!path){ return; }
-        const r = await fetch(`/api/profiles/${SELECTED}/paths`,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path, type: typ})});
-        if(r.ok){ input.value=''; loadPaths(); } else { alert('Failed to add path'); }
+        const r = await fetch(`/api/profiles/${SELECTED}/paths`,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path, cmd_suffix: suffix, type: typ})});
+        if(r.ok){ input.value=''; suffixInput.value=''; loadPaths(); } else { alert('Failed to add path'); }
       });
       // Inline edit/delete for registered paths
       document.getElementById('pathsTable').addEventListener('click', async (e)=>{
@@ -270,15 +273,19 @@
           return;
         }
         if(act === 'edit'){
-          const tdPath = tr.querySelector('td');
+          const tdPath = tr.children[0];
           const current = (tr.querySelector('.path-text')?.textContent)||'';
           tdPath.innerHTML = '<input type="text" style="width:100%">';
           const input = tdPath.querySelector('input'); input.value = current; input.focus();
-          const tdTypeCell = tr.children[1];
+          const tdSuffixCell = tr.children[1];
+          const curSuffix = (tdSuffixCell.textContent||'').trim();
+          tdSuffixCell.innerHTML = '<input type="text" style="width:100%">';
+          const inpSuffix = tdSuffixCell.querySelector('input'); inpSuffix.value = curSuffix;
+          const tdTypeCell = tr.children[2];
           const currentType = (tdTypeCell.textContent||'text').trim();
           tdTypeCell.innerHTML = '<select><option value="auto">auto</option><option value="text">text</option><option value="image">image</option></select>';
           const sel = tdTypeCell.querySelector('select'); sel.value = (currentType==='image'||currentType==='text')? currentType : 'auto';
-          const tdAct = tr.children[2];
+          const tdAct = tr.children[3];
           tdAct.innerHTML = '';
           const bSave = document.createElement('button'); bSave.textContent='Save'; bSave.dataset.act='save'; bSave.dataset.id=id;
           const bCancel = document.createElement('button'); bCancel.textContent='Cancel'; bCancel.dataset.act='cancel'; bCancel.dataset.id=id;
@@ -290,13 +297,16 @@
           return;
         }
         if(act === 'save'){
-          const tdPath = tr.querySelector('td');
+          const tdPath = tr.children[0];
           const input = tdPath.querySelector('input');
           const newPath = (input && input.value ? input.value.trim() : '');
-          const tdTypeCell = tr.children[1];
+          const tdSuffixCell = tr.children[1];
+          const inpSuffix = tdSuffixCell.querySelector('input');
+          const newSuffix = (inpSuffix && inpSuffix.value ? inpSuffix.value.trim() : '');
+          const tdTypeCell = tr.children[2];
           const sel = tdTypeCell.querySelector('select'); const newType = sel ? sel.value : 'text';
           if(!newPath){ alert('Path required'); return; }
-          const r = await fetch(`/api/profile_paths/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path: newPath, type: newType })});
+          const r = await fetch(`/api/profile_paths/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path: newPath, cmd_suffix: newSuffix, type: newType })});
           if(r.ok){ loadPaths(); } else { alert('Update failed'); }
           return;
         }

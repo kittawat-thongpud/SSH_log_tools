@@ -95,10 +95,13 @@ button:hover { background: #111827; border-color: #475569; }
 .img-viewer .close { position: absolute; top: -44px; right: 0; background: rgba(17,24,39,0.6); color:#fff; border:1px solid #374151; border-radius:8px; padding:6px 10px; cursor:pointer; }
 
 /* Thumbnails in modals */
-.thumb { border: 1px solid #1f2937; border-radius: 6px; padding: 4px; display:inline-block; margin: 4px; background:#0b1220; }
-.thumb img { max-width: 160px; max-height: 120px; display:block; border-radius:4px; }
-.thumb .meta { display:flex; justify-content:space-between; align-items:center; margin-top:4px; }
-.thumb .meta .idx { color: var(--muted); font-size:10px; }
+#selectedImagesList { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; }
+.thumb { border: 1px solid #1f2937; border-radius: 6px; padding: 4px; background:#0b1220; }
+.thumb img { width:100%; height:auto; max-height:120px; display:block; object-fit:cover; border-radius:4px; }
+.thumb .meta { display:flex; flex-direction:column; align-items:center; margin-top:4px; }
+.thumb .meta .name { color: var(--muted); font-size:10px; text-align:center; word-break:break-word; }
+.thumb .meta .buttons { margin-top:4px; display:flex; gap:4px; justify-content:center; }
+.thumb .meta button { font-size:10px; padding:4px 6px; }
 
 /* Directory look */
 .path-block { border-left: 2px solid #1f2937; padding-left: 10px; margin-left: 6px; }

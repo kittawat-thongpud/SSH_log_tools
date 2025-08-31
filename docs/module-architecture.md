@@ -44,14 +44,13 @@ graph TD
   F --> T
   F --> TP
   F --> TR
-  T --> S
-  T --> RF
-  TR --> RF
   T --> TF
   TR --> TF
+  T --> S
   T --> CSS
-  TP --> CSS
+  TR --> RF
   TR --> CSS
+  TP --> CSS
 
   subgraph Communication Layer
     API[/HTTP: /api/.../]
@@ -69,5 +68,8 @@ graph TD
 - config.host, config.port — config.json
 - logs.names, logs.paths — config.json
 - computation.tail.block_size — routes.py (tail implementation)
+- ui.record_form.grid — static/record_form.js (modal image grid)
+- ui.logs.scan_table — static/app.js (match counts in register groups)
+- api.profile_paths.pipe_split — app/routes.py (split `| grep` into grep_chain; capture cmd_suffix for cat/list)
 
 Keep this graph updated when imports or boundaries change.
