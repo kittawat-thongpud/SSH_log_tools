@@ -28,7 +28,9 @@ CTX_PRIORITY_MODE: recent-first
 │  ├─ templates/
 │  │  ├─ index.html            # Logs page (SPA shell)
 │  │  ├─ profiles.html         # Profiles management (SSH/FTP)
-│  │  └─ records.html          # Records browse/upload
+│  │  ├─ records.html          # Records browse/upload
+│  │  └─ components/
+│  │     └─ record_form.html   # Reusable record form widget (Jinja macro)
 │  └─ static/
 │     ├─ app.js                # Logs page UI logic
 │     └─ style.css             # Styles
@@ -57,6 +59,7 @@ CTX_PRIORITY_MODE: recent-first
 - app/db.py: SQLite schema init and helpers (profiles, profile_paths, records, record_images).
 - app/views.py: Serves index.html, profiles.html, records.html.
 - templates + static: Simple pages calling REST endpoints.
+- templates/components/record_form.html: Shared record form widget used by logs and records pages.
 
 ## External Dependencies
 - Flask, Werkzeug: web server and routing
