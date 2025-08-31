@@ -26,6 +26,11 @@
     "ttl": 60,
     "max_bytes": 20971520
   },
+  "export": {
+    "cell_width": 20,
+    "cell_height": 120,
+    "image_column": "H"
+  },
   "logs": [
     {"name": "ExampleSSH", "path": "C:/ProgramData/ssh/logs/sshd.log"}
   ]

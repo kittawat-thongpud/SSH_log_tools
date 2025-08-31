@@ -796,15 +796,27 @@ def export_records():
             ).fetchall()
         ]
         r["tags"] = tags
-    # build workbook
+    # build workbook and zip with images
     import io
-    from openpyxl import Workbook
-    from openpyxl.drawing.image import Image as XLImage
-    from openpyxl.styles import Alignment
+    import zipfile
+    import xlsxwriter
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "records"
+    cfg = load_config()
+    export_cfg = cfg.get("export") if isinstance(cfg.get("export"), dict) else {}
+    img_col_letter = export_cfg.get("image_column", "H")
+    img_col_idx = ord(img_col_letter.upper()) - ord("A")
+    cell_w = export_cfg.get("cell_width", 20)
+    cell_h = export_cfg.get("cell_height", 120)
+
+    wb_buffer = io.BytesIO()
+    wb = xlsxwriter.Workbook(wb_buffer, {"in_memory": True})
+    vba_path = os.path.join(os.path.dirname(__file__), "vbaProject.bin")
+    if os.path.isfile(vba_path):
+        # vbaProject.bin contains a macro that inserts images listed in the
+        # worksheet into their corresponding cells and resizes the cell to fit.
+        wb.add_vba_project(vba_path)
+    ws = wb.add_worksheet("records")
+
     headers = [
         "ID",
         "Profile",
@@ -817,7 +829,12 @@ def export_records():
         "Event Date",
         "Create Date",
     ]
-    ws.append(headers)
+    for col, h in enumerate(headers):
+        ws.write(0, col, h)
+    ws.set_column(img_col_idx, img_col_idx, cell_w)
+
+    img_files = []
+    row_idx = 1
     for r in rows:
         tag_names = ", ".join(t.get("name", "") for t in r.get("tags", []))
         event_dt = (
@@ -828,7 +845,9 @@ def export_records():
         create_dt = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(r.get("created_at") or 0)
         )
-        ws.append(
+        ws.write_row(
+            row_idx,
+            0,
             [
                 r.get("id"),
                 profs.get(r.get("profile_id"), r.get("profile_id")),
@@ -840,37 +859,38 @@ def export_records():
                 "",
                 event_dt,
                 create_dt,
-            ]
+            ],
         )
-        row_idx = ws.max_row
+        ws.set_row(row_idx, cell_h)
         imgs = r.get("images", [])
         if imgs:
             first = imgs[0]
             p = first.get("path") or ""
             src = os.path.join(get_images_dir(), p)
             if p and os.path.isfile(src):
-                try:
-                    img = XLImage(src)
-                    cell_ref = f"H{row_idx}"
-                    ws.add_image(img, cell_ref)
-                    ws.row_dimensions[row_idx].height = img.height * 0.75
-                    col_width = img.width * 0.14
-                    if (
-                        ws.column_dimensions["H"].width is None
-                        or ws.column_dimensions["H"].width < col_width
-                    ):
-                        ws.column_dimensions["H"].width = col_width
-                except Exception:
-                    pass
-    bio = io.BytesIO()
-    wb.save(bio)
+                fname = os.path.basename(p)
+                rel = f"images/{fname}"
+                ws.write(row_idx, img_col_idx, rel)
+                img_files.append((src, rel))
+        row_idx += 1
+    wb.close()
+    wb_buffer.seek(0)
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("records.xlsx", wb_buffer.getvalue())
+        for src, rel in img_files:
+            try:
+                with open(src, "rb") as f:
+                    zf.writestr(rel, f.read())
+            except Exception:
+                pass
     conn.close()
-    bio.seek(0)
+    zip_buffer.seek(0)
     return send_file(
-        bio,
-        mimetype="application/vnd.ms-excel.sheet.macroEnabled.12",
+        zip_buffer,
+        mimetype="application/zip",
         as_attachment=True,
-        download_name="records.xlsm",
+        download_name="records_export.zip",
     )
 
 

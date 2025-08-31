@@ -6,3 +6,4 @@ waitress>=3.0.0
 paramiko>=3.4.0
 olefile>=0.47
 openpyxl>=3.1.5
+xlsxwriter>=3.2.5
