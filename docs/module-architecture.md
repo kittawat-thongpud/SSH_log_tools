@@ -69,5 +69,6 @@ graph TD
 - config.host, config.port — config.json
 - logs.names, logs.paths — config.json
 - computation.tail.block_size — routes.py (tail implementation)
+- ui.record_form.grid — static/record_form.js (modal image grid)
 
 Keep this graph updated when imports or boundaries change.

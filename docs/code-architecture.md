@@ -59,7 +59,7 @@ CTX_PRIORITY_MODE: recent-first
 - app/db.py: SQLite schema init and helpers (profiles, profile_paths, records, record_images).
  - app/views.py: Serves index.html, profiles.html, records.html.
  - templates + static: Simple pages calling REST endpoints.
- - _record_form.html + record_form.js: reusable modal for creating/updating records.
+ - _record_form.html + record_form.js: reusable modal for creating/updating records with a grid-based image gallery showing filenames.
 
 ## External Dependencies
 - Flask, Werkzeug: web server and routing

@@ -34,8 +34,10 @@ function openImageRecordModal(profileId, imagePath){
   const t=document.createElement('div'); t.className='thumb';
   const im=document.createElement('img'); im.src=url; t.appendChild(im);
   const meta=document.createElement('div'); meta.className='meta';
-  const si=document.createElement('span'); si.className='idx'; si.textContent='#1'; meta.appendChild(si);
-  const vb=document.createElement('button'); vb.type='button'; vb.textContent='View'; vb.dataset.act='imgview'; vb.dataset.src=url; meta.appendChild(vb);
+  const name=document.createElement('div'); name.className='name'; name.textContent=imagePath.split(/[\\/]/).pop(); meta.appendChild(name);
+  const btnWrap=document.createElement('div'); btnWrap.className='buttons';
+  const vb=document.createElement('button'); vb.type='button'; vb.textContent='View'; vb.dataset.act='imgview'; vb.dataset.src=url; btnWrap.appendChild(vb);
+  meta.appendChild(btnWrap);
   t.appendChild(meta); list.appendChild(t);
   block.style.display='block';
   RECORD_STATE.selectedImages=[imagePath];
@@ -62,9 +64,13 @@ function openRecordDetail(rec){
       const t=document.createElement('div'); t.className='thumb';
       const im=document.createElement('img'); im.src=img.url||img.path; t.appendChild(im);
       const meta=document.createElement('div'); meta.className='meta';
-      const si=document.createElement('span'); si.className='idx'; si.textContent='#'+(img.id||idx+1); meta.appendChild(si);
-      const vb=document.createElement('button'); vb.type='button'; vb.textContent='View'; vb.dataset.act='imgview'; vb.dataset.src=img.url||img.path; meta.appendChild(vb);
-      const db=document.createElement('button'); db.type='button'; db.textContent='Remove'; db.style.borderColor='#991b1b'; db.dataset.act='imgdel'; db.dataset.id=img.id; meta.appendChild(db);
+      const name=document.createElement('div'); name.className='name';
+      try{ name.textContent=(img.name||img.path||img.url||'').split(/[\\/]/).pop()||('image'+(idx+1)); }catch{ name.textContent='image'+(idx+1); }
+      meta.appendChild(name);
+      const btnWrap=document.createElement('div'); btnWrap.className='buttons';
+      const vb=document.createElement('button'); vb.type='button'; vb.textContent='View'; vb.dataset.act='imgview'; vb.dataset.src=img.url||img.path; btnWrap.appendChild(vb);
+      const db=document.createElement('button'); db.type='button'; db.textContent='Remove'; db.style.borderColor='#991b1b'; db.dataset.act='imgdel'; db.dataset.id=img.id; btnWrap.appendChild(db);
+      meta.appendChild(btnWrap);
       t.appendChild(meta); list.appendChild(t);
     });
     block.style.display='block';
@@ -132,7 +138,18 @@ if(typeof document!=='undefined'){
         const list=document.getElementById('selectedImagesList'); const block=document.getElementById('selectedImagesBlock');
         block.style.display='block';
         for(const f of (fileInput.files||[])){
-          try{ const url=URL.createObjectURL(f); const t=document.createElement('div'); t.className='thumb'; const im=document.createElement('img'); im.src=url; t.appendChild(im); const m=document.createElement('div'); m.className='meta'; const s=document.createElement('span'); s.className='idx'; s.textContent=f.name; m.appendChild(s); const b=document.createElement('button'); b.type='button'; b.textContent='View'; b.dataset.act='imgview'; b.dataset.src=url; m.appendChild(b); t.appendChild(m); list.appendChild(t); }catch{}
+          try{
+            const url=URL.createObjectURL(f);
+            const t=document.createElement('div'); t.className='thumb';
+            const im=document.createElement('img'); im.src=url; t.appendChild(im);
+            const m=document.createElement('div'); m.className='meta';
+            const n=document.createElement('div'); n.className='name'; n.textContent=f.name; m.appendChild(n);
+            const btns=document.createElement('div'); btns.className='buttons';
+            const b=document.createElement('button'); b.type='button'; b.textContent='View'; b.dataset.act='imgview'; b.dataset.src=url; btns.appendChild(b);
+            m.appendChild(btns);
+            t.appendChild(m);
+            list.appendChild(t);
+          }catch{}
         }
       }); }
       const list=document.getElementById('selectedImagesList');
