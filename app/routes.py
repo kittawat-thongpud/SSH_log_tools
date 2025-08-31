@@ -74,6 +74,30 @@ def _infer_path_type(pattern: str) -> str:
     return "text"
 
 
+def _split_path_chain_suffix(raw: str) -> tuple[str, List[str], str]:
+    """Split a registered path on ``|`` segments.
+
+    Returns the base path, a list of grep patterns, and a trailing suffix
+    command (first non-grep segment after all greps). Non-grep segments
+    prior to the final suffix are ignored for safety.
+    """
+    if not raw:
+        return "", [], ""
+    parts = [p.strip() for p in raw.split("|")]
+    base = parts[0]
+    chain: List[str] = []
+    suffix = ""
+    for seg in parts[1:]:
+        seg = seg.strip()
+        if seg.lower().startswith("grep"):
+            pat = seg[4:].strip()
+            if pat:
+                chain.append(pat)
+        else:
+            suffix = seg  # only the last non-grep segment is kept
+    return base, chain, suffix
+
+
 def _tail_lines(path: str, lines: int = 200, encoding: str = "utf-8") -> List[str]:
     # Efficient tail implementation
     if lines <= 0:
@@ -217,7 +241,10 @@ def _get_profile(pid: int) -> Optional[Dict[str, Any]]:
 
 def _list_paths(pid: int) -> List[Dict[str, Any]]:
     conn = get_db()
-    cur = conn.execute("SELECT id, path, grep_chain, type, created_at FROM profile_paths WHERE profile_id=? ORDER BY id DESC", (pid,))
+    cur = conn.execute(
+        "SELECT id, path, grep_chain, cmd_suffix, type, created_at FROM profile_paths WHERE profile_id=? ORDER BY id DESC",
+        (pid,),
+    )
     rows: List[Dict[str, Any]] = []
     for r in cur.fetchall():
         item = row_to_dict(r)
@@ -231,6 +258,8 @@ def _list_paths(pid: int) -> List[Dict[str, Any]]:
             except Exception:
                 chain = []
         item["grep_chain"] = chain
+        # Ensure cmd_suffix exists (may be None)
+        item["cmd_suffix"] = item.get("cmd_suffix") or ""
         # Infer type automatically unless explicitly stored as image
         stored_t = (item.get("type") or "").lower()
         inferred_t = _infer_path_type(item.get("path") or "")
@@ -338,26 +367,47 @@ def update_profile_path(ppid: int):
     sets: List[str] = []
     vals: List[Any] = []
     if "path" in data:
-        new_path = (data.get("path") or "").strip()
-        if not new_path:
+        raw_path = (data.get("path") or "").strip()
+        base, auto_chain, auto_suffix = _split_path_chain_suffix(raw_path)
+        if not base:
             return jsonify({"error": "path required"}), 400
-        sets.append("path=?"); vals.append(new_path)
-        # If type not explicitly provided, re-infer from new path
+        sets.append("path=?"); vals.append(base)
+        # If type not explicitly provided, re-infer from base path
         if "type" not in data:
-            inferred = _infer_path_type(new_path)
+            inferred = _infer_path_type(base)
             sets.append("type=?"); vals.append(inferred)
-    if "grep_chain" in data:
         gc = data.get("grep_chain")
-        if isinstance(gc, list):
-            try:
-                gc = json.loads(json.dumps(gc))
-            except Exception:
-                gc = []
-        elif isinstance(gc, str):
-            gc = [s for s in gc.split(",") if s]
+        if gc is None:
+            chain = auto_chain
         else:
-            gc = []
-        sets.append("grep_chain=?"); vals.append(json.dumps(gc))
+            if isinstance(gc, list):
+                chain = [s for s in gc if s]
+            elif isinstance(gc, str):
+                chain = [s for s in gc.split(",") if s]
+            else:
+                chain = []
+            chain.extend(auto_chain)
+        sets.append("grep_chain=?"); vals.append(json.dumps(chain))
+        if "cmd_suffix" in data:
+            raw_suffix = data.get("cmd_suffix")
+            suffix = raw_suffix.strip() if isinstance(raw_suffix, str) else ""
+        else:
+            suffix = auto_suffix
+        sets.append("cmd_suffix=?"); vals.append(suffix)
+    else:
+        if "grep_chain" in data:
+            gc = data.get("grep_chain")
+            if isinstance(gc, list):
+                chain = [s for s in gc if s]
+            elif isinstance(gc, str):
+                chain = [s for s in gc.split(",") if s]
+            else:
+                chain = []
+            sets.append("grep_chain=?"); vals.append(json.dumps(chain))
+        if "cmd_suffix" in data:
+            raw_suffix = data.get("cmd_suffix")
+            suffix = raw_suffix.strip() if isinstance(raw_suffix, str) else ""
+            sets.append("cmd_suffix=?"); vals.append(suffix)
     if "type" in data:
         t_raw = data.get("type")
         t = str(t_raw or "").lower().strip()
@@ -404,28 +454,35 @@ def add_profile_path(pid: int):
     if not prof:
         abort(404)
     data = request.get_json(force=True, silent=True) or {}
-    path = (data.get("path") or "").strip()
-    gc = data.get("grep_chain")
+    raw_path = (data.get("path") or "").strip()
+    base, auto_chain, auto_suffix = _split_path_chain_suffix(raw_path)
+    extra = data.get("grep_chain")
+    if isinstance(extra, list):
+        chain = [s for s in extra if s] + auto_chain
+    elif isinstance(extra, str):
+        chain = [s for s in extra.split(",") if s] + auto_chain
+    else:
+        chain = auto_chain
+    raw_suffix = data.get("cmd_suffix")
+    if isinstance(raw_suffix, str) and raw_suffix.strip():
+        suffix = raw_suffix.strip()
+    else:
+        suffix = auto_suffix
     raw_t = data.get("type")
     t = str(raw_t or "").lower().strip() if isinstance(raw_t, str) else None
     if not t or t == "auto":
-        t = _infer_path_type(path)
+        t = _infer_path_type(base)
     if t not in ("text", "image"):
         t = "text"
-    if isinstance(gc, list):
-        try:
-            gc_s = json.dumps(gc)
-        except Exception:
-            gc_s = json.dumps([])
-    elif isinstance(gc, str):
-        gc_s = json.dumps([s for s in gc.split(",") if s])
-    else:
-        gc_s = json.dumps([])
-    if not path:
+    gc_s = json.dumps(chain)
+    if not base:
         return jsonify({"error": "path required"}), 400
     ts = int(time.time())
     conn = get_db()
-    conn.execute("INSERT INTO profile_paths(profile_id, path, grep_chain, type, created_at) VALUES(?,?,?,?,?)", (pid, path, gc_s, t, ts))
+    conn.execute(
+        "INSERT INTO profile_paths(profile_id, path, grep_chain, cmd_suffix, type, created_at) VALUES(?,?,?,?,?,?)",
+        (pid, base, gc_s, suffix, t, ts),
+    )
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -475,6 +532,7 @@ def ssh_cat(pid: int):
         chain = request.args.get("grep_chain", "")
         if chain:
             greps = [s for s in chain.split(",") if s]
+    suffix = request.args.get("cmd_suffix", "").strip()
     # Max lines (tail last N)
     try:
         max_lines = int(request.args.get("lines", 200))
@@ -495,6 +553,8 @@ def ssh_cat(pid: int):
     cmd_inner = f"tail -n {max_lines} -- {pattern}"
     for g in greps:
         cmd_inner += f" | grep -F -- {sh_q(g)}"
+    if suffix:
+        cmd_inner += f" | {suffix.replace("'", "'\"'\"'")}"
     cmd = f"bash -lc {sh_q(cmd_inner)}"
     res = _ssh_exec(prof, cmd, timeout=_get_ssh_timeout())
     if not res.get("ok"):
@@ -861,6 +921,7 @@ def ssh_list(pid: int):
     if "|" in pattern:
         pattern = pattern.split("|", 1)[0].strip()
     kind = (request.args.get("type") or "").strip().lower()
+    suffix = request.args.get("cmd_suffix", "").strip()
     try:
         limit = int(request.args.get("limit", 200))
     except Exception:
@@ -886,6 +947,8 @@ def ssh_list(pid: int):
         "shopt -s nullglob dotglob; "
         f"for f in {pattern}; do [ -f \"$f\" ] && echo \"$f\"; done | head -n {limit}"
     )
+    if suffix:
+        script += f" | {suffix.replace("'", "'\"'\"'")}"
     cmd = f"bash -lc {sh_q(script)}"
     res = _ssh_exec(prof, cmd, timeout=_get_ssh_timeout())
     if not res.get("ok"):

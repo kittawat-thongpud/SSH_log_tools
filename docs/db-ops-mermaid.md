@@ -22,6 +22,7 @@ erDiagram
     int profile_id FK
     string path
     string grep_chain
+    string cmd_suffix
     string type
     int created_at
   }

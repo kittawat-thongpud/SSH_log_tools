@@ -56,6 +56,7 @@ def init_db() -> None:
             profile_id INTEGER NOT NULL,
             path TEXT NOT NULL,
             grep_chain TEXT,
+            cmd_suffix TEXT,
             type TEXT NOT NULL DEFAULT 'text',
             created_at INTEGER NOT NULL,
             FOREIGN KEY(profile_id) REFERENCES profiles(id) ON DELETE CASCADE
@@ -68,6 +69,8 @@ def init_db() -> None:
         cols = [r[1] for r in cur.fetchall()]
         if "grep_chain" not in cols:
             cur.execute("ALTER TABLE profile_paths ADD COLUMN grep_chain TEXT")
+        if "cmd_suffix" not in cols:
+            cur.execute("ALTER TABLE profile_paths ADD COLUMN cmd_suffix TEXT")
         if "type" not in cols:
             cur.execute("ALTER TABLE profile_paths ADD COLUMN type TEXT NOT NULL DEFAULT 'text'")
     except Exception:
