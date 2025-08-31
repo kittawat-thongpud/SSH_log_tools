@@ -1,5 +1,34 @@
-const RECORD_FORM_STATE = { selectedImages: [] };
+const RECORD_FORM_STATE = { selectedImages: [], selectedTags: [] };
+let TAGS = [];
+async function loadTagCache(){
+  try{
+    const r = await fetch('/api/tags');
+    const d = await r.json();
+    TAGS = d.tags||[];
+  }catch{ TAGS = []; }
+  return TAGS;
+}
+window.loadTagCache = loadTagCache;
 function setNow(inputEl){ if(!inputEl) return; try{ const d=new Date(); inputEl.value = new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }catch{} }
+function renderTagButtons(selected){
+  const wrap = document.getElementById('tagList');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  RECORD_FORM_STATE.selectedTags = Array.isArray(selected)? [...selected] : [];
+  TAGS.forEach(t=>{
+    const btn=document.createElement('button');
+    btn.type='button'; btn.className='tag-btn'; btn.textContent=t.name;
+    if(RECORD_FORM_STATE.selectedTags.includes(t.id)) btn.classList.add('selected');
+    btn.onclick=()=>{
+      const idx=RECORD_FORM_STATE.selectedTags.indexOf(t.id);
+      if(idx>=0){ RECORD_FORM_STATE.selectedTags.splice(idx,1); btn.classList.remove('selected'); }
+      else { RECORD_FORM_STATE.selectedTags.push(t.id); btn.classList.add('selected'); }
+      document.getElementById('recordTagsJson').value = JSON.stringify(RECORD_FORM_STATE.selectedTags);
+    };
+    wrap.appendChild(btn);
+  });
+  document.getElementById('recordTagsJson').value = JSON.stringify(RECORD_FORM_STATE.selectedTags);
+}
 function openRecordForm(opts){
   const modal = document.getElementById('recordModal');
   const form = document.getElementById('recordForm');
@@ -17,6 +46,7 @@ function openRecordForm(opts){
   else { setNow(form.elements['event_dt']); }
   const titleEl = document.getElementById('recordModalTitle');
   if(titleEl) titleEl.textContent = data.id? 'Record Detail' : 'Save Record';
+  loadTagCache().then(()=>{ renderTagButtons((data.tags||[]).map(t=>t.id)); });
   const block = document.getElementById('selectedImagesBlock');
   const list = document.getElementById('selectedImagesList');
   list.innerHTML='';
@@ -55,6 +85,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         situation:String(fd.get('situation')||''),
         event_time:(function(){ const dt=fd.get('event_dt'); if(!dt) return null; const t=Date.parse(dt); return isNaN(t)? null: Math.floor(t/1000); })(),
         description:String(fd.get('description')||''),
+        tags:(function(){ try{ return JSON.parse(fd.get('tags_json')||'[]'); }catch{ return []; } })()
       };
       let rec=null;
       if(id){
@@ -101,6 +132,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }
     });
   }
+  loadTagCache();
 });
 function openRecordModal(profileId, path, line){
   openRecordForm({ profile_id: profileId, file_path: path, content: line });

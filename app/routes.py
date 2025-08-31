@@ -602,6 +602,41 @@ def ftp_list(pid: int):
         return jsonify({"error": str(e)}), 502
 
 
+# ------------------ Tags ------------------
+
+@bp.get("/tags")
+def list_tags():
+    conn = get_db()
+    rows = [row_to_dict(r) for r in conn.execute("SELECT id, name FROM tags ORDER BY name").fetchall()]
+    conn.close()
+    return jsonify({"tags": rows})
+
+
+@bp.post("/tags")
+def create_tag():
+    data = request.get_json(force=True, silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name required"}), 400
+    conn = get_db()
+    cur = conn.execute("INSERT INTO tags(name) VALUES(?)", (name,))
+    tid = cur.lastrowid
+    conn.commit()
+    row = conn.execute("SELECT id, name FROM tags WHERE id=?", (tid,)).fetchone()
+    conn.close()
+    return jsonify(row_to_dict(row)), 201
+
+
+@bp.delete("/tags/<int:tid>")
+def delete_tag(tid: int):
+    conn = get_db()
+    cur = conn.execute("DELETE FROM tags WHERE id=?", (tid,))
+    conn.commit()
+    deleted = cur.rowcount
+    conn.close()
+    return jsonify({"ok": deleted > 0})
+
+
 # ------------------ Records & Images ------------------
 
 @bp.post("/records")
@@ -626,18 +661,33 @@ def create_record():
         (profile_id, title, file_path, flt, content, situation, event_time, description, ts),
     )
     rid = cur.lastrowid
+    tags = data.get("tags") or []
+    for tid in tags:
+        try:
+            conn.execute(
+                "INSERT OR IGNORE INTO record_tags(record_id, tag_id) VALUES(?,?)",
+                (rid, int(tid)),
+            )
+        except Exception:
+            pass
     conn.commit()
     cur = conn.execute("SELECT * FROM records WHERE id=?", (rid,))
     row = cur.fetchone()
+    tag_rows = conn.execute(
+        "SELECT t.id, t.name FROM tags t JOIN record_tags rt ON rt.tag_id=t.id WHERE rt.record_id=? ORDER BY t.name",
+        (rid,),
+    ).fetchall()
     conn.close()
-    return jsonify(row_to_dict(row)), 201
+    rec = row_to_dict(row)
+    rec["tags"] = [row_to_dict(tr) for tr in tag_rows]
+    return jsonify(rec), 201
 
 
 @bp.get("/records")
 def list_records():
     conn = get_db()
     rows = [row_to_dict(r) for r in conn.execute("SELECT * FROM records ORDER BY id DESC").fetchall()]
-    # attach images
+    # attach images and tags
     for r in rows:
         imgs = []
         for x in conn.execute("SELECT id, path, created_at FROM record_images WHERE record_id=? ORDER BY id DESC", (r["id"],)).fetchall():
@@ -646,6 +696,14 @@ def list_records():
             di["url"] = _public_image_url(p) if p else None
             imgs.append(di)
         r["images"] = imgs
+        tags = [
+            row_to_dict(t)
+            for t in conn.execute(
+                "SELECT t.id, t.name FROM tags t JOIN record_tags rt ON rt.tag_id=t.id WHERE rt.record_id=? ORDER BY t.name",
+                (r["id"],),
+            ).fetchall()
+        ]
+        r["tags"] = tags
     conn.close()
     return jsonify({"records": rows})
 
@@ -711,7 +769,8 @@ def update_record(rid: int):
     for key in ("title", "file_path", "filter", "content", "situation", "event_time", "description"):
         if key in data:
             fields[key] = data[key]
-    if not fields:
+    tags = data.get("tags") if "tags" in data else None
+    if not fields and tags is None:
         return jsonify({"error": "no fields"}), 400
     if "event_time" in fields:
         try:
@@ -722,9 +781,22 @@ def update_record(rid: int):
     vals = list(fields.values())
     vals.append(rid)
     conn = get_db()
-    cur = conn.execute(f"UPDATE records SET {sets} WHERE id=?", vals)
+    if sets:
+        cur = conn.execute(f"UPDATE records SET {sets} WHERE id=?", vals)
+        ok = cur.rowcount > 0
+    else:
+        ok = True
+    if tags is not None:
+        conn.execute("DELETE FROM record_tags WHERE record_id=?", (rid,))
+        for tid in tags:
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO record_tags(record_id, tag_id) VALUES(?,?)",
+                    (rid, int(tid)),
+                )
+            except Exception:
+                pass
     conn.commit()
-    ok = cur.rowcount > 0
     conn.close()
     return jsonify({"ok": ok})
 

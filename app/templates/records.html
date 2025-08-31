@@ -13,6 +13,7 @@
         <a href="/">Logs</a>
         <a href="/profiles">Profiles</a>
         <a href="/records">Records</a>
+        <a href="/tags">Tags</a>
         <a href="/docs" target="_blank">API Docs</a>
       </nav>
       <div class="actions"></div>
@@ -35,6 +36,7 @@
               <th>Title</th>
               <th>Situation</th>
               <th>Description</th>
+              <th>Tags</th>
               <th>Image link</th>
               <th>Situation Date</th>
               <th>Create Date</th>
@@ -93,7 +95,8 @@
         const logs = (rec.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const situation = rec.situation||'';
         const desc = (rec.description||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        tr.innerHTML = `<td>${rec.id}</td><td>${pm[rec.profile_id]||''}</td><td>${rec.file_path||''}</td><td>${logs}</td><td>${rec.title||''}</td><td>${situation}</td><td>${desc}</td><td>${imgs}</td><td>${situationDate}</td><td>${created}</td><td><button data-act=\"del\" data-id=\"${rec.id}\" style=\"border-color:#991b1b\">Delete</button></td>`;
+        const tags = (rec.tags||[]).map(t=>`<button class=\"tag-btn\" type=\"button\">${t.name}</button>`).join(' ');
+        tr.innerHTML = `<td>${rec.id}</td><td>${pm[rec.profile_id]||''}</td><td>${rec.file_path||''}</td><td>${logs}</td><td>${rec.title||''}</td><td>${situation}</td><td>${desc}</td><td>${tags}</td><td>${imgs}</td><td>${situationDate}</td><td>${created}</td><td><button data-act=\"del\" data-id=\"${rec.id}\" style=\"border-color:#991b1b\">Delete</button></td>`;
         tr.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; openDetail(rec); });
         tb.appendChild(tr);
       });
@@ -116,7 +119,8 @@
       description: rec.description || '',
       content: rec.content || '',
       event_time: rec.event_time || null,
-      images: rec.images || []
+      images: rec.images || [],
+      tags: rec.tags || []
     });
   }
   document.addEventListener('recordFormSaved', load);

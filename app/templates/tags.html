@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tags - SSH Log Tools</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <header>
+      <h1>SSH Log Tools</h1>
+      <nav>
+        <a href="/">Logs</a>
+        <a href="/profiles">Profiles</a>
+        <a href="/records">Records</a>
+        <a href="/tags">Tags</a>
+        <a href="/docs" target="_blank">API Docs</a>
+      </nav>
+      <div class="actions"></div>
+    </header>
+    <main>
+      <section class="viewer">
+        <div class="panel" style="margin:10px">
+          <h2>Tags</h2>
+          <div style="margin-bottom:8px; display:flex; gap:8px; align-items:center;">
+            <input id="tagName" type="text" placeholder="Tag name" style="width:200px" />
+            <button id="addTag">Add Tag</button>
+          </div>
+          <table id="tagTable">
+            <thead><tr><th>ID</th><th>Name</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="/static/record_form.js"></script>
+    <script>
+      window.APP_CFG = {{ (app_cfg or {'apiTimeoutMs':30000}) | tojson }};
+      // mark active nav
+      (function(){
+        var path = location.pathname.replace(/\/+$/, '') || '/';
+        document.querySelectorAll('header nav a').forEach(function(a){
+          var href = a.getAttribute('href');
+          if(href === path) a.classList.add('active');
+        });
+      })();
+      async function loadTags(){
+        const r = await fetch('/api/tags');
+        const data = await r.json();
+        const tb = document.querySelector('#tagTable tbody');
+        tb.innerHTML = '';
+        (data.tags||[]).forEach(t=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${t.id}</td><td>${t.name}</td><td><button data-id="${t.id}" data-act="del" style="border-color:#991b1b">Delete</button></td>`;
+          tb.appendChild(tr);
+        });
+      }
+      document.getElementById('addTag').addEventListener('click', async ()=>{
+        const name = document.getElementById('tagName').value.trim();
+        if(!name) return;
+        const r = await fetch('/api/tags', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+        if(r.ok){ document.getElementById('tagName').value=''; await loadTags(); if(window.loadTagCache) window.loadTagCache(); }
+        else { alert('Add failed'); }
+      });
+      document.getElementById('tagTable').addEventListener('click', async (e)=>{
+        const btn = e.target.closest('button'); if(!btn) return;
+        if(btn.dataset.act==='del'){
+          if(!confirm('Delete this tag?')) return;
+          const id = btn.dataset.id;
+          const r = await fetch(`/api/tags/${id}`, {method:'DELETE'});
+          if(r.ok){ await loadTags(); if(window.loadTagCache) window.loadTagCache(); }
+        }
+      });
+      (async ()=>{ await loadTags(); if(window.loadTagCache) window.loadTagCache(); })();
+    </script>
+  </body>
+</html>
