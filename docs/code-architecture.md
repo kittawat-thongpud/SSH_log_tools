@@ -28,9 +28,11 @@ CTX_PRIORITY_MODE: recent-first
 │  ├─ templates/
 │  │  ├─ index.html            # Logs page (SPA shell)
 │  │  ├─ profiles.html         # Profiles management (SSH/FTP)
-│  │  └─ records.html          # Records browse/upload
+│  │  ├─ records.html          # Records browse/upload
+│  │  └─ _record_form.html     # Reusable record form modal
 │  └─ static/
 │     ├─ app.js                # Logs page UI logic
+│     ├─ record_form.js        # Shared record form behaviors
 │     └─ style.css             # Styles
 ├─ docs/
 │  ├─ env.md

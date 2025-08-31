@@ -1,0 +1,43 @@
+<div id="recordModal" class="modal">
+  <div class="content">
+    <h3 id="recordModalTitle">Save Record</h3>
+    <form id="recordForm">
+      <input type="hidden" name="id" />
+      <input type="hidden" name="profile_id" />
+      <input type="hidden" name="selected_images_json" id="selectedImagesJson" />
+      <label>Path
+        <input type="text" name="file_path" readonly style="width:100%" />
+      </label>
+      <label>Title
+        <input type="text" name="title" placeholder="Optional title" style="width:100%" />
+      </label>
+      <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">
+        <label>Date/Time
+          <input type="datetime-local" name="event_dt" />
+        </label>
+        <label>Situation
+          <input type="text" name="situation" placeholder="e.g., Incident, Debug, Note" />
+        </label>
+      </div>
+      <label>Description
+        <textarea name="description" placeholder="Describe context or steps" style="width:100%;height:80px"></textarea>
+      </label>
+      <label>Logs
+        <textarea id="recordLineView" name="content" placeholder="Log lines (for text records)" style="width:100%;height:100px"></textarea>
+      </label>
+      <div>
+        <strong>Images</strong>
+        <div id="selectedImagesBlock" style="display:none; margin:6px 0;">
+          <div id="selectedImagesList" class="panel" style="max-height:180px; overflow:auto"></div>
+        </div>
+        <div style="margin-top:6px;">
+          <input type="file" name="images" multiple accept="image/*" />
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" id="recordCancel">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
