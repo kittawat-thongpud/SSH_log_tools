@@ -921,7 +921,6 @@ def ssh_list(pid: int):
     if "|" in pattern:
         pattern = pattern.split("|", 1)[0].strip()
     kind = (request.args.get("type") or "").strip().lower()
-    suffix = request.args.get("cmd_suffix", "").strip()
     try:
         limit = int(request.args.get("limit", 200))
     except Exception:
@@ -947,8 +946,6 @@ def ssh_list(pid: int):
         "shopt -s nullglob dotglob; "
         f"for f in {pattern}; do [ -f \"$f\" ] && echo \"$f\"; done | head -n {limit}"
     )
-    if suffix:
-        script += f" | {suffix.replace("'", "'\"'\"'")}"
     cmd = f"bash -lc {sh_q(script)}"
     res = _ssh_exec(prof, cmd, timeout=_get_ssh_timeout())
     if not res.get("ok"):
