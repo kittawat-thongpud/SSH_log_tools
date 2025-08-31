@@ -686,7 +686,45 @@ def create_record():
 @bp.get("/records")
 def list_records():
     conn = get_db()
+<<<<<<< ours
     rows = [row_to_dict(r) for r in conn.execute("SELECT * FROM records ORDER BY id DESC").fetchall()]
+=======
+    tag = request.args.get("tag")
+    start = request.args.get("start")
+    end = request.args.get("end")
+    sql = "SELECT DISTINCT records.* FROM records"
+    conds = []
+    params: list[Any] = []
+    if tag:
+        sql += " JOIN record_tags rt ON rt.record_id = records.id"
+        conds.append("rt.tag_id=?")
+        try:
+            params.append(int(tag))
+        except Exception:
+            pass
+    def _parse_dt(d: str) -> Optional[int]:
+        try:
+            import datetime as _dt
+
+            return int(_dt.datetime.strptime(d, "%Y-%m-%d").timestamp())
+        except Exception:
+            return None
+
+    if start:
+        ts = _parse_dt(start)
+        if ts is not None:
+            conds.append("records.created_at>=?")
+            params.append(ts)
+    if end:
+        ts = _parse_dt(end)
+        if ts is not None:
+            conds.append("records.created_at<=?")
+            params.append(ts + 86399)
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+    sql += " ORDER BY records.id DESC"
+    rows = [row_to_dict(r) for r in conn.execute(sql, params).fetchall()]
+>>>>>>> theirs
     # attach images and tags
     for r in rows:
         imgs = []
@@ -706,6 +744,135 @@ def list_records():
         r["tags"] = tags
     conn.close()
     return jsonify({"records": rows})
+
+
+@bp.get("/records/export")
+def export_records():
+    tag = request.args.get("tag")
+    start = request.args.get("start")
+    end = request.args.get("end")
+    conn = get_db()
+    sql = "SELECT DISTINCT records.* FROM records"
+    conds = []
+    params: list[Any] = []
+    if tag:
+        sql += " JOIN record_tags rt ON rt.record_id = records.id"
+        conds.append("rt.tag_id=?")
+        try:
+            params.append(int(tag))
+        except Exception:
+            pass
+    def _parse_dt(d: str) -> Optional[int]:
+        try:
+            import datetime as _dt
+
+            return int(_dt.datetime.strptime(d, "%Y-%m-%d").timestamp())
+        except Exception:
+            return None
+
+    if start:
+        ts = _parse_dt(start)
+        if ts is not None:
+            conds.append("records.created_at>=?")
+            params.append(ts)
+    if end:
+        ts = _parse_dt(end)
+        if ts is not None:
+            conds.append("records.created_at<=?")
+            params.append(ts + 86399)
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+    sql += " ORDER BY records.id DESC"
+    rows = [row_to_dict(r) for r in conn.execute(sql, params).fetchall()]
+    profs = {p["id"]: p["name"] for p in conn.execute("SELECT id, name FROM profiles").fetchall()}
+    # attach images and tags
+    for r in rows:
+        imgs = []
+        for x in conn.execute("SELECT id, path, created_at FROM record_images WHERE record_id=? ORDER BY id DESC", (r["id"],)).fetchall():
+            di = row_to_dict(x)
+            imgs.append(di)
+        r["images"] = imgs
+        tags = [
+            row_to_dict(t)
+            for t in conn.execute(
+                "SELECT t.id, t.name FROM tags t JOIN record_tags rt ON rt.tag_id=t.id WHERE rt.record_id=? ORDER BY t.name",
+                (r["id"],),
+            ).fetchall()
+        ]
+        r["tags"] = tags
+    # build workbook
+    import io
+    import zipfile
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "records"
+    headers = [
+        "ID",
+        "Profile",
+        "Path",
+        "Title",
+        "Situation",
+        "Description",
+        "Tags",
+        "Images",
+        "Event Date",
+        "Create Date",
+    ]
+    ws.append(headers)
+    image_files: list[tuple[str, str]] = []
+    for r in rows:
+        tag_names = ", ".join(t.get("name", "") for t in r.get("tags", []))
+        img_formulas: list[str] = []
+        for img in r.get("images", []):
+            p = img.get("path") or ""
+            if not p:
+                continue
+            src = os.path.join(get_images_dir(), p)
+            bn = os.path.basename(p)
+            arc = f"images/{bn}"
+            if os.path.isfile(src):
+                image_files.append((src, arc))
+            img_formulas.append(f'HYPERLINK("images/{bn}","{bn}")')
+        event_dt = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r.get("event_time") or 0)) if r.get("event_time") else ""
+        create_dt = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r.get("created_at") or 0))
+        ws.append([
+            r.get("id"),
+            profs.get(r.get("profile_id"), r.get("profile_id")),
+            r.get("file_path"),
+            r.get("title"),
+            r.get("situation"),
+            r.get("description"),
+            tag_names,
+            "",
+            event_dt,
+            create_dt,
+        ])
+        row_idx = ws.max_row
+        if img_formulas:
+            cell = ws.cell(row=row_idx, column=8)
+            cell.value = "=" + "&CHAR(10)&".join(img_formulas)
+            cell.alignment = Alignment(wrap_text=True)
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as zf:
+        wb_data = io.BytesIO()
+        wb.save(wb_data)
+        zf.writestr("records.xlsx", wb_data.getvalue())
+        for src, arc in image_files:
+            try:
+                zf.write(src, arc)
+            except Exception:
+                pass
+    conn.close()
+    bio.seek(0)
+    return send_file(
+        bio,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name="records_export.zip",
+    )
 
 
 @bp.get("/media/<path:subpath>")

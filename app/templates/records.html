@@ -27,19 +27,32 @@
       </aside>
       <section class="viewer">
         <div class="panel" style="margin:10px">
+          <div class="filter-bar">
+            <label>Tag
+              <select id="filterTag"></select>
+            </label>
+            <label>Start
+              <input type="date" id="filterStart" />
+            </label>
+            <label>End
+              <input type="date" id="filterEnd" />
+            </label>
+            <button id="filterBtn" type="button">Filter</button>
+            <button id="exportBtn" type="button">Export</button>
+          </div>
           <table id="tbl">
             <thead><tr>
-              <th>ID</th>
-              <th>Profile</th>
-              <th>Path</th>
+              <th data-sort="id">ID</th>
+              <th data-sort="profile">Profile</th>
+              <th data-sort="file_path">Path</th>
               <th>Logs</th>
-              <th>Title</th>
-              <th>Situation</th>
-              <th>Description</th>
+              <th data-sort="title">Title</th>
+              <th data-sort="situation">Situation</th>
+              <th data-sort="description">Description</th>
               <th>Tags</th>
               <th>Image link</th>
-              <th>Situation Date</th>
-              <th>Create Date</th>
+              <th data-sort="event_time">Situation Date</th>
+              <th data-sort="created_at">Create Date</th>
               <th></th>
             </tr></thead>
             <tbody></tbody>
@@ -71,8 +84,11 @@
   const PREF_NS='sshlt_';
   function setPref(k,v){ try{ localStorage.setItem(PREF_NS+k, JSON.stringify(v)); }catch{} }
   function getPref(k,d){ try{ const v=localStorage.getItem(PREF_NS+k); return v? JSON.parse(v): d; }catch{ return d; } }
-  let PROFILES=[];
+  let PROFILES=[], TAGS=[];
   let PROFILE_ID=getPref('records.PROFILE_ID','all');
+  let TAG_FILTER='all', START_DATE='', END_DATE='';
+  let SORT_KEY='id', SORT_DIR=-1;
+  let RECORDS=[];
   async function loadProfiles(){
     const d = await (await fetch('/api/profiles')).json();
     PROFILES = d.profiles||[];
@@ -81,32 +97,63 @@
     PROFILES.forEach(p=> sel.add(new Option(p.name, p.id)));
     sel.value = PROFILE_ID;
   }
-  async function load(){
-    const r = await fetch('/api/records'); const data = await r.json();
+  async function loadTags(){
+    const d = await (await fetch('/api/tags')).json();
+    TAGS = d.tags||[];
+    const sel = document.getElementById('filterTag'); sel.innerHTML='';
+    sel.add(new Option('All','all'));
+    TAGS.forEach(t=> sel.add(new Option(t.name, t.id)));
+    sel.value = TAG_FILTER;
+  }
+  async function loadRecords(){
+    const params = new URLSearchParams();
+    if(TAG_FILTER!=='all') params.append('tag', TAG_FILTER);
+    if(START_DATE) params.append('start', START_DATE);
+    if(END_DATE) params.append('end', END_DATE);
+    const r = await fetch('/api/records?'+params.toString());
+    const data = await r.json();
+    RECORDS = (data.records||[]).filter(rec => PROFILE_ID==='all' || rec.profile_id===Number(PROFILE_ID));
+    renderTable();
+  }
+  function renderTable(){
     const pm = {}; PROFILES.forEach(p=>pm[p.id]=p.name);
     const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
-    (data.records||[])
-      .filter(rec => PROFILE_ID==='all' || rec.profile_id===Number(PROFILE_ID))
-      .forEach(rec=>{
-        const tr = document.createElement('tr');
-        const imgs = (rec.images||[]).map(i=>`<a href=\"${i.url||i.path}\" target=\"_blank\">img#${i.id}</a>`).join(', ');
-        const created = new Date((rec.created_at||0)*1000).toLocaleString();
-        const situationDate = rec.event_time ? new Date(rec.event_time*1000).toLocaleString() : '';
-        const logs = (rec.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        const situation = rec.situation||'';
-        const desc = (rec.description||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        const tags = (rec.tags||[]).map(t=>`<button class=\"tag-btn\" type=\"button\">${t.name}</button>`).join(' ');
-        tr.innerHTML = `<td>${rec.id}</td><td>${pm[rec.profile_id]||''}</td><td>${rec.file_path||''}</td><td>${logs}</td><td>${rec.title||''}</td><td>${situation}</td><td>${desc}</td><td>${tags}</td><td>${imgs}</td><td>${situationDate}</td><td>${created}</td><td><button data-act=\"del\" data-id=\"${rec.id}\" style=\"border-color:#991b1b\">Delete</button></td>`;
-        tr.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; openDetail(rec); });
-        tb.appendChild(tr);
-      });
+    const arr = [...RECORDS];
+    arr.sort((a,b)=>{
+      let va, vb;
+      if(SORT_KEY==='profile'){ va=pm[a.profile_id]||''; vb=pm[b.profile_id]||''; }
+      else { va=a[SORT_KEY]; vb=b[SORT_KEY]; }
+      if(va==null) va=''; if(vb==null) vb='';
+      if(typeof va==='string') va=va.toLowerCase();
+      if(typeof vb==='string') vb=vb.toLowerCase();
+      if(va<vb) return -SORT_DIR; if(va>vb) return SORT_DIR; return 0;
+    });
+    arr.forEach(rec=>{
+      const tr = document.createElement('tr');
+      const imgs = (rec.images||[]).map(i=>`<a href=\"${i.url||i.path}\" target=\"_blank\">img#${i.id}</a>`).join(', ');
+      const created = new Date((rec.created_at||0)*1000).toLocaleString();
+      const situationDate = rec.event_time ? new Date(rec.event_time*1000).toLocaleString() : '';
+      const logs = (rec.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const situation = rec.situation||'';
+      const desc = (rec.description||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const tags = (rec.tags||[]).map(t=>`<button class=\"tag-btn\" type=\"button\">${t.name}</button>`).join(' ');
+      tr.innerHTML = `<td>${rec.id}</td><td>${pm[rec.profile_id]||''}</td><td>${rec.file_path||''}</td><td>${logs}</td><td>${rec.title||''}</td><td>${situation}</td><td>${desc}</td><td>${tags}</td><td>${imgs}</td><td>${situationDate}</td><td>${created}</td><td><button data-act=\"del\" data-id=\"${rec.id}\" style=\"border-color:#991b1b\">Delete</button></td>`;
+      tr.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; openDetail(rec); });
+      tb.appendChild(tr);
+    });
+    document.querySelectorAll('#tbl thead th').forEach(th=>{
+      const key = th.dataset.sort; if(!key) return;
+      let base = th.textContent.replace(/[▲▼]\s*$/,'');
+      if(key===SORT_KEY) base += SORT_DIR===1?' ▲':' ▼';
+      th.textContent = base;
+    });
   }
   document.getElementById('tbl').addEventListener('click', async (e)=>{
     const btn = e.target.closest('button'); if(!btn) return;
     if(btn.dataset.act==='del'){
       if(!confirm('Delete this record?')) return;
       const rid = btn.dataset.id; const r = await fetch(`/api/records/${rid}`, { method:'DELETE' });
-      if(r.ok){ load(); } else { alert('Delete failed'); }
+      if(r.ok){ loadRecords(); } else { alert('Delete failed'); }
     }
   });
   function openDetail(rec){
@@ -123,9 +170,30 @@
       tags: rec.tags || []
     });
   }
-  document.addEventListener('recordFormSaved', load);
-  document.getElementById('profileSelect').addEventListener('change', (e)=>{ PROFILE_ID = e.target.value; setPref('records.PROFILE_ID', PROFILE_ID); load(); });
-  (async ()=>{ await loadProfiles(); await load(); })();
+  document.addEventListener('recordFormSaved', loadRecords);
+  document.getElementById('profileSelect').addEventListener('change', (e)=>{ PROFILE_ID = e.target.value; setPref('records.PROFILE_ID', PROFILE_ID); loadRecords(); });
+  document.getElementById('filterBtn').addEventListener('click', ()=>{
+    TAG_FILTER = document.getElementById('filterTag').value;
+    START_DATE = document.getElementById('filterStart').value;
+    END_DATE = document.getElementById('filterEnd').value;
+    loadRecords();
+  });
+  document.getElementById('exportBtn').addEventListener('click', ()=>{
+    const params = new URLSearchParams();
+    if(TAG_FILTER!=='all') params.append('tag', TAG_FILTER);
+    if(START_DATE) params.append('start', START_DATE);
+    if(END_DATE) params.append('end', END_DATE);
+    window.location = '/api/records/export?'+params.toString();
+  });
+  document.querySelectorAll('#tbl thead th[data-sort]').forEach(th=>{
+    const key = th.dataset.sort;
+    th.style.cursor='pointer';
+    th.addEventListener('click', ()=>{
+      if(SORT_KEY===key){ SORT_DIR*=-1; } else { SORT_KEY=key; SORT_DIR=1; }
+      renderTable();
+    });
+  });
+  (async ()=>{ await loadProfiles(); await loadTags(); await loadRecords(); })();
   // viewer fn (shared with Logs page)
   let IMG_VIEW = { arr: [], idx: 0 };
   function openImageViewer(arr, start){
