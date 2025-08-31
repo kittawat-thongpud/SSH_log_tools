@@ -6,7 +6,8 @@
     "filename": "{date}.log",
     "max_bytes": 1048576,
     "console": true,
-    "console_level": "DEBUG"
+    "console_level": "DEBUG",
+    "level": "DEBUG"
   },
   "ui": {
     "show_on_start": true,

@@ -112,17 +112,26 @@ def setup_logging(config: Dict[str, Any]) -> None:
     - level: logging level name (e.g., INFO, DEBUG)
     - format: record format string
     """
+    
     global _LOGGING_CONFIGURED
     if _LOGGING_CONFIGURED:
         return
+
+    # --- 1) พิมพ์ incoming config (สั้น/ชัวร์) ไป STDERR ก่อนตั้ง handler ---
+    try:
+        print("[setup_logging] incoming config:", file=sys.stderr)
+        print(json.dumps(config, indent=2, ensure_ascii=False), file=sys.stderr)
+    except Exception:
+        # เผื่อ json.dumps พลาดก็ยังบอกชนิดได้
+        print(f"[setup_logging] incoming config type={type(config)}", file=sys.stderr)
+
 
     log_cfg = (config or {}).get("logging", {}) if isinstance(config, dict) else {}
     enabled = bool(log_cfg.get("enabled", True))
     console_enabled = bool(log_cfg.get("console", True))
 
-    # Always set at least a basic configuration to avoid NoHandler warnings
     root = logging.getLogger()
-    root.setLevel(logging.DEBUG)  # allow handlers to filter
+    root.setLevel(logging.DEBUG)  # เปิดทางให้ DEBUG ผ่านถึง handler
 
     if not enabled:
         # Optional console logging when file logging disabled
@@ -142,6 +151,28 @@ def setup_logging(config: Dict[str, Any]) -> None:
                 ch.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
                 root.addHandler(ch)
         _LOGGING_CONFIGURED = True
+
+        try:
+            summary = {
+                "file_logging_enabled": enabled,
+                "console_enabled": console_enabled,
+                "root_level": logging.getLevelName(root.level),
+                "handlers": [
+                    {
+                        "type": h.__class__.__name__,
+                        "level": logging.getLevelName(getattr(h, "level", logging.NOTSET)),
+                        "stream": ("stdout" if getattr(h, "stream", None) is sys.stdout else
+                                "stderr" if getattr(h, "stream", None) is sys.stderr else None),
+                        "baseFilename": getattr(h, "baseFilename", None),
+                    }
+                    for h in root.handlers
+                ],
+            }
+            print("[setup_logging] effective logging summary:", file=sys.stderr)
+            print(json.dumps(summary, indent=2, ensure_ascii=False), file=sys.stderr)
+        except Exception:
+            pass
+
         return
 
     dir_path = str(log_cfg.get("path") or "logs")

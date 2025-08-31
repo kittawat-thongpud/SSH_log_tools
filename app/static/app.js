@@ -273,7 +273,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }
     });
   }
-<<<<<<< ours
 });
 
 // Simple fullscreen image viewer
@@ -293,6 +292,3 @@ function openImageViewer(arr, start){
   function esc(e){ if(e.key==='Escape'){ wrap.style.display='none'; document.removeEventListener('keydown', esc);} if(e.key==='ArrowLeft'){ if(IMG_VIEW.idx>0){ IMG_VIEW.idx--; render(); } } if(e.key==='ArrowRight'){ if(IMG_VIEW.idx<IMG_VIEW.arr.length-1){ IMG_VIEW.idx++; render(); } } }
   document.addEventListener('keydown', esc);
 }
-=======
-  });
->>>>>>> theirs

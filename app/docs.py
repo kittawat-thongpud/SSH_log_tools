@@ -47,7 +47,7 @@ def swagger_ui():
         <meta charset='utf-8'>
         <title>API Docs - SSH Log Tools</title>
         <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
-        <style> body {{ margin:0; background:#0f172a; }} #swagger-ui {{ max-width: 100%; }}</style>
+        <style> body {{ margin:0; background:#E9FEE1; }} #swagger-ui {{ max-width: 100%; }}</style>
       </head>
       <body>
         <div id="swagger-ui"></div>
