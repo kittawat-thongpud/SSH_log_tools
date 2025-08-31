@@ -686,9 +686,6 @@ def create_record():
 @bp.get("/records")
 def list_records():
     conn = get_db()
-<<<<<<< ours
-    rows = [row_to_dict(r) for r in conn.execute("SELECT * FROM records ORDER BY id DESC").fetchall()]
-=======
     tag = request.args.get("tag")
     start = request.args.get("start")
     end = request.args.get("end")
@@ -724,7 +721,6 @@ def list_records():
         sql += " WHERE " + " AND ".join(conds)
     sql += " ORDER BY records.id DESC"
     rows = [row_to_dict(r) for r in conn.execute(sql, params).fetchall()]
->>>>>>> theirs
     # attach images and tags
     for r in rows:
         imgs = []
