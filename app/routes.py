@@ -798,8 +798,8 @@ def export_records():
         r["tags"] = tags
     # build workbook
     import io
-    import zipfile
     from openpyxl import Workbook
+    from openpyxl.drawing.image import Image as XLImage
     from openpyxl.styles import Alignment
 
     wb = Workbook()
@@ -818,56 +818,59 @@ def export_records():
         "Create Date",
     ]
     ws.append(headers)
-    image_files: list[tuple[str, str]] = []
     for r in rows:
         tag_names = ", ".join(t.get("name", "") for t in r.get("tags", []))
-        img_formulas: list[str] = []
-        for img in r.get("images", []):
-            p = img.get("path") or ""
-            if not p:
-                continue
-            src = os.path.join(get_images_dir(), p)
-            bn = os.path.basename(p)
-            arc = f"images/{bn}"
-            if os.path.isfile(src):
-                image_files.append((src, arc))
-            img_formulas.append(f'HYPERLINK("images/{bn}","{bn}")')
-        event_dt = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r.get("event_time") or 0)) if r.get("event_time") else ""
-        create_dt = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r.get("created_at") or 0))
-        ws.append([
-            r.get("id"),
-            profs.get(r.get("profile_id"), r.get("profile_id")),
-            r.get("file_path"),
-            r.get("title"),
-            r.get("situation"),
-            r.get("description"),
-            tag_names,
-            "",
-            event_dt,
-            create_dt,
-        ])
+        event_dt = (
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r.get("event_time") or 0))
+            if r.get("event_time")
+            else ""
+        )
+        create_dt = time.strftime(
+            "%Y-%m-%d %H:%M:%S", time.localtime(r.get("created_at") or 0)
+        )
+        ws.append(
+            [
+                r.get("id"),
+                profs.get(r.get("profile_id"), r.get("profile_id")),
+                r.get("file_path"),
+                r.get("title"),
+                r.get("situation"),
+                r.get("description"),
+                tag_names,
+                "",
+                event_dt,
+                create_dt,
+            ]
+        )
         row_idx = ws.max_row
-        if img_formulas:
-            cell = ws.cell(row=row_idx, column=8)
-            cell.value = "=" + "&CHAR(10)&".join(img_formulas)
-            cell.alignment = Alignment(wrap_text=True)
+        imgs = r.get("images", [])
+        if imgs:
+            first = imgs[0]
+            p = first.get("path") or ""
+            src = os.path.join(get_images_dir(), p)
+            if p and os.path.isfile(src):
+                try:
+                    img = XLImage(src)
+                    cell_ref = f"H{row_idx}"
+                    ws.add_image(img, cell_ref)
+                    ws.row_dimensions[row_idx].height = img.height * 0.75
+                    col_width = img.width * 0.14
+                    if (
+                        ws.column_dimensions["H"].width is None
+                        or ws.column_dimensions["H"].width < col_width
+                    ):
+                        ws.column_dimensions["H"].width = col_width
+                except Exception:
+                    pass
     bio = io.BytesIO()
-    with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as zf:
-        wb_data = io.BytesIO()
-        wb.save(wb_data)
-        zf.writestr("records.xlsx", wb_data.getvalue())
-        for src, arc in image_files:
-            try:
-                zf.write(src, arc)
-            except Exception:
-                pass
+    wb.save(bio)
     conn.close()
     bio.seek(0)
     return send_file(
         bio,
-        mimetype="application/zip",
+        mimetype="application/vnd.ms-excel.sheet.macroEnabled.12",
         as_attachment=True,
-        download_name="records_export.zip",
+        download_name="records.xlsm",
     )
 
 
