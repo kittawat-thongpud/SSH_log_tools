@@ -84,7 +84,7 @@
   const PREF_NS='sshlt_';
   function setPref(k,v){ try{ localStorage.setItem(PREF_NS+k, JSON.stringify(v)); }catch{} }
   function getPref(k,d){ try{ const v=localStorage.getItem(PREF_NS+k); return v? JSON.parse(v): d; }catch{ return d; } }
-  let PROFILES=[], TAGS=[];
+  let PROFILES=[]; TAG_CACHE=[];
   let PROFILE_ID=getPref('records.PROFILE_ID','all');
   let TAG_FILTER='all', START_DATE='', END_DATE='';
   let SORT_KEY='id', SORT_DIR=-1;
@@ -99,10 +99,10 @@
   }
   async function loadTags(){
     const d = await (await fetch('/api/tags')).json();
-    TAGS = d.tags||[];
+    TAG_CACHE = d.tags||[];
     const sel = document.getElementById('filterTag'); sel.innerHTML='';
     sel.add(new Option('All','all'));
-    TAGS.forEach(t=> sel.add(new Option(t.name, t.id)));
+    TAG_CACHE.forEach(t=> sel.add(new Option(t.name, t.id)));
     sel.value = TAG_FILTER;
   }
   async function loadRecords(){

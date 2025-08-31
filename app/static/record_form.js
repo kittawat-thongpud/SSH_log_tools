@@ -1,15 +1,15 @@
 const RECORD_FORM_STATE = { selectedImages: [], selectedTags: [] };
 // Use var and reuse existing global to avoid redeclaration errors when this
 // script is loaded on multiple pages.
-var TAGS = window.TAGS || [];
-window.TAGS = TAGS;
+var TAG_CACHE = window.TAG_CACHE || [];
+window.TAG_CACHE = TAG_CACHE;
 async function loadTagCache(){
   try{
     const r = await fetch('/api/tags');
     const d = await r.json();
-    TAGS = d.tags||[];
-  }catch{ TAGS = []; }
-  return TAGS;
+    TAG_CACHE = d.tags||[];
+  }catch{ TAG_CACHE = []; }
+  return TAG_CACHE;
 }
 window.loadTagCache = loadTagCache;
 function setNow(inputEl){ if(!inputEl) return; try{ const d=new Date(); inputEl.value = new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }catch{} }
@@ -18,7 +18,7 @@ function renderTagButtons(selected){
   if(!wrap) return;
   wrap.innerHTML='';
   RECORD_FORM_STATE.selectedTags = Array.isArray(selected)? [...selected] : [];
-  TAGS.forEach(t=>{
+  TAG_CACHE.forEach(t=>{
     const btn=document.createElement('button');
     btn.type='button'; btn.className='tag-btn'; btn.textContent=t.name;
     if(RECORD_FORM_STATE.selectedTags.includes(t.id)) btn.classList.add('selected');
