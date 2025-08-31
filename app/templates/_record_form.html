@@ -23,6 +23,14 @@
       <label>Description
         <textarea name="description" placeholder="Describe context or steps" style="width:100%;height:80px"></textarea>
       </label>
+      <div>
+        <strong>Tags</strong>
+        <div id="recordTagList" style="margin:6px 0;"></div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <select id="recordTagSelect" style="flex:1"></select>
+          <button type="button" id="recordTagAdd">Add Tag</button>
+        </div>
+      </div>
       <label>Logs
         <textarea id="recordLineView" name="content" placeholder="Log lines (for text records)" style="width:100%;height:100px"></textarea>
       </label>

@@ -619,6 +619,7 @@ def create_record():
     except Exception:
         event_time = None
     description = (data.get("description") or "").strip()
+    tags = data.get("tags") or []
     ts = int(time.time())
     conn = get_db()
     cur = conn.execute(
@@ -626,26 +627,49 @@ def create_record():
         (profile_id, title, file_path, flt, content, situation, event_time, description, ts),
     )
     rid = cur.lastrowid
+    if isinstance(tags, list):
+        for tid in tags:
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO record_tags(record_id, tag_id) VALUES(?, ?)",
+                    (rid, int(tid)),
+                )
+            except Exception:
+                pass
     conn.commit()
     cur = conn.execute("SELECT * FROM records WHERE id=?", (rid,))
     row = cur.fetchone()
+    # attach tags
+    trows = conn.execute(
+        "SELECT t.id, t.name FROM tags t JOIN record_tags rt ON t.id=rt.tag_id WHERE rt.record_id=? ORDER BY t.name",
+        (rid,),
+    ).fetchall()
+    result = row_to_dict(row)
+    result["tags"] = [row_to_dict(t) for t in trows]
     conn.close()
-    return jsonify(row_to_dict(row)), 201
+    return jsonify(result), 201
 
 
 @bp.get("/records")
 def list_records():
     conn = get_db()
     rows = [row_to_dict(r) for r in conn.execute("SELECT * FROM records ORDER BY id DESC").fetchall()]
-    # attach images
     for r in rows:
         imgs = []
-        for x in conn.execute("SELECT id, path, created_at FROM record_images WHERE record_id=? ORDER BY id DESC", (r["id"],)).fetchall():
+        for x in conn.execute(
+            "SELECT id, path, created_at FROM record_images WHERE record_id=? ORDER BY id DESC",
+            (r["id"],),
+        ).fetchall():
             di = row_to_dict(x)
             p = di.get("path") or ""
             di["url"] = _public_image_url(p) if p else None
             imgs.append(di)
         r["images"] = imgs
+        trows = conn.execute(
+            "SELECT t.id, t.name FROM tags t JOIN record_tags rt ON t.id=rt.tag_id WHERE rt.record_id=? ORDER BY t.name",
+            (r["id"],),
+        ).fetchall()
+        r["tags"] = [row_to_dict(t) for t in trows]
     conn.close()
     return jsonify({"records": rows})
 
@@ -711,20 +735,34 @@ def update_record(rid: int):
     for key in ("title", "file_path", "filter", "content", "situation", "event_time", "description"):
         if key in data:
             fields[key] = data[key]
-    if not fields:
+    tags = data.get("tags") if "tags" in data else None
+    if not fields and tags is None:
         return jsonify({"error": "no fields"}), 400
     if "event_time" in fields:
         try:
             fields["event_time"] = int(fields["event_time"]) if fields["event_time"] is not None else None
         except Exception:
             fields["event_time"] = None
-    sets = ",".join([f"{k}=?" for k in fields.keys()])
-    vals = list(fields.values())
-    vals.append(rid)
     conn = get_db()
-    cur = conn.execute(f"UPDATE records SET {sets} WHERE id=?", vals)
-    conn.commit()
-    ok = cur.rowcount > 0
+    ok = True
+    if fields:
+        sets = ",".join([f"{k}=?" for k in fields.keys()])
+        vals = list(fields.values())
+        vals.append(rid)
+        cur = conn.execute(f"UPDATE records SET {sets} WHERE id=?", vals)
+        conn.commit()
+        ok = cur.rowcount > 0
+    if isinstance(tags, list):
+        conn.execute("DELETE FROM record_tags WHERE record_id=?", (rid,))
+        for tid in tags:
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO record_tags(record_id, tag_id) VALUES(?, ?)",
+                    (rid, int(tid)),
+                )
+            except Exception:
+                pass
+        conn.commit()
     conn.close()
     return jsonify({"ok": ok})
 
@@ -757,6 +795,43 @@ def delete_record(rid: int):
     deleted = cur.rowcount
     conn.close()
     return jsonify({"ok": deleted > 0, "deleted": deleted})
+
+
+@bp.get("/tags")
+def list_tags():
+    conn = get_db()
+    rows = [row_to_dict(r) for r in conn.execute("SELECT * FROM tags ORDER BY name").fetchall()]
+    conn.close()
+    return jsonify({"tags": rows})
+
+
+@bp.post("/tags")
+def create_tag():
+    data = request.get_json(force=True, silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name required"}), 400
+    ts = int(time.time())
+    conn = get_db()
+    try:
+        cur = conn.execute("INSERT INTO tags(name, created_at) VALUES(?, ?)", (name, ts))
+        tid = cur.lastrowid
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({"error": "exists"}), 409
+    row = conn.execute("SELECT * FROM tags WHERE id=?", (tid,)).fetchone()
+    conn.close()
+    return jsonify(row_to_dict(row)), 201
+
+
+@bp.delete("/tags/<int:tid>")
+def delete_tag(tid: int):
+    conn = get_db()
+    conn.execute("DELETE FROM tags WHERE id=?", (tid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
 
 
 def _secure_filename(name: str) -> str:

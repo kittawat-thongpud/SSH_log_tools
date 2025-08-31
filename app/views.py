@@ -45,6 +45,11 @@ def records_page():
     return render_template("records.html", app_cfg=_client_cfg())
 
 
+@bp.get("/tags")
+def tags_page():
+    return render_template("tags.html", app_cfg=_client_cfg())
+
+
 @bp.get("/media/<path:subpath>")
 def media_file(subpath: str):
     base = get_images_dir()

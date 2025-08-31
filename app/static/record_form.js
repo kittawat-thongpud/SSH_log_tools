@@ -1,16 +1,45 @@
 // Reusable Record Form modal widget
-const RECORD_STATE = { selectedImages: [] };
+const RECORD_STATE = { selectedImages: [], tags: [] };
 
 function setNow(inputEl){ if(!inputEl) return; try{ const d=new Date(); inputEl.value=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}catch{} }
 function escapeHtml(s){ return String(s||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function renderTagOptions(){
+  const sel=document.getElementById('recordTagSelect'); if(!sel) return;
+  sel.innerHTML='';
+  (window.ALL_TAGS||[]).forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=t.name; sel.appendChild(o); });
+}
+
+function renderTags(){
+  const list=document.getElementById('recordTagList'); if(!list) return;
+  list.innerHTML='';
+  RECORD_STATE.tags.forEach(id=>{
+    const tag=(window.ALL_TAGS||[]).find(t=>t.id===id);
+    if(!tag) return;
+    const b=document.createElement('button'); b.type='button'; b.className='tag-btn'; b.textContent=tag.name; b.dataset.id=id;
+    list.appendChild(b);
+  });
+}
+
+async function loadTagsCache(){
+  try{
+    const r=await fetch('/api/tags'); const data=await r.json();
+    window.ALL_TAGS=data.tags||[];
+    renderTagOptions();
+    renderTags();
+  }catch{}
+}
+if(typeof window!=='undefined'){ window.loadTagsCache=loadTagsCache; }
 
 function resetRecordForm(){
   const form=document.getElementById('recordForm'); if(!form) return;
   form.reset();
   RECORD_STATE.selectedImages=[];
+  RECORD_STATE.tags=[];
   const list=document.getElementById('selectedImagesList'); if(list) list.innerHTML='';
   const block=document.getElementById('selectedImagesBlock'); if(block) block.style.display='none';
   document.getElementById('selectedImagesJson').value='[]';
+  renderTags();
 }
 
 function openRecordModal(profileId, path, line){
@@ -77,6 +106,8 @@ function openRecordDetail(rec){
   }else{
     block.style.display='none';
   }
+  RECORD_STATE.tags=(rec.tags||[]).map(t=>t.id);
+  renderTags();
   document.getElementById('recordModal').style.display='flex';
 }
 
@@ -100,6 +131,7 @@ function openImageViewer(arr,start){
 // Initialization
 if(typeof document!=='undefined'){
   document.addEventListener('DOMContentLoaded',()=>{
+    loadTagsCache();
     const cancel=document.getElementById('recordCancel'); if(cancel) cancel.onclick=closeRecordModal;
     const form=document.getElementById('recordForm');
     if(form){
@@ -114,7 +146,8 @@ if(typeof document!=='undefined'){
           content:String(fd.get('content')||''),
           situation:String(fd.get('situation')||''),
           event_time:(function(){ const dt=fd.get('event_dt'); if(!dt) return null; const t=Date.parse(dt); return isNaN(t)?null:Math.floor(t/1000); })(),
-          description:String(fd.get('description')||'')
+          description:String(fd.get('description')||''),
+          tags:RECORD_STATE.tags
         };
         let url='/api/records'; let method='POST';
         if(rid){ url=`/api/records/${rid}`; method='PUT'; }
@@ -162,6 +195,10 @@ if(typeof document!=='undefined'){
           const iid=btn.dataset.id; if(iid){ await fetch(`/api/record_images/${iid}`,{method:'DELETE'}); if(btn.closest('.thumb')) btn.closest('.thumb').remove(); if(window.loadRecords){ window.loadRecords(); } }
         }
       }); }
+      const tagAdd=document.getElementById('recordTagAdd');
+      if(tagAdd){ tagAdd.onclick=()=>{ const sel=document.getElementById('recordTagSelect'); const id=Number(sel.value); if(id && !RECORD_STATE.tags.includes(id)){ RECORD_STATE.tags.push(id); renderTags(); } }; }
+      const tagList=document.getElementById('recordTagList');
+      if(tagList){ tagList.addEventListener('click', (e)=>{ const btn=e.target.closest('button'); if(!btn) return; const id=Number(btn.dataset.id); RECORD_STATE.tags=RECORD_STATE.tags.filter(t=>t!==id); renderTags(); }); }
     }
     const imgWrap=document.getElementById('imgViewer'); if(imgWrap){ imgWrap.style.display='none'; }
   });

@@ -55,13 +55,18 @@ sequenceDiagram
 - GET `/api/profiles/<id>/ftp/list?path=/` — list FTP directory
 
 ### Records API
-- POST `/api/records` — create `{ profile_id?, title?, file_path?, filter?, content, situation?, event_time?, description? }`
-- GET `/api/records` — list records with images
-- PUT `/api/records/<id>` — update title/situation/description/event_time
+- POST `/api/records` — create `{ profile_id?, title?, file_path?, filter?, content, situation?, event_time?, description?, tags?[] }`
+- GET `/api/records` — list records with images and tags
+- PUT `/api/records/<id>` — update title/situation/description/event_time/tags
 - DELETE `/api/records/<id>` — delete record
 - POST `/api/records/<id>/image` — upload image (multipart form-data `file`)
 - POST `/api/records/<id>/image_remote` — fetch/attach remote image via SFTP (cached)
 - DELETE `/record_images/<iid>` — delete image
+
+### Tags API
+- GET `/api/tags` — list tags
+- POST `/api/tags` — create `{ name }`
+- DELETE `/api/tags/<id>` — delete tag
 
 ## Log Tail Algorithm
 Goal: efficiently read the last N lines without loading the entire file.

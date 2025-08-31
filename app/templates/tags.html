@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tags - SSH Log Tools</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <header>
+      <h1>SSH Log Tools</h1>
+      <nav>
+        <a href="/">Logs</a>
+        <a href="/profiles">Profiles</a>
+        <a href="/records">Records</a>
+        <a href="/tags">Tags</a>
+        <a href="/docs" target="_blank">API Docs</a>
+      </nav>
+      <div class="actions"></div>
+    </header>
+    <main>
+      <section class="panel" style="max-width:400px; margin:20px auto;">
+        <h2>Add Tag</h2>
+        <form id="tagForm" style="display:flex; gap:8px;">
+          <input name="name" placeholder="tag name" style="flex:1" />
+          <button type="submit">Add</button>
+        </form>
+      </section>
+      <section class="panel" style="max-width:400px; margin:20px auto;">
+        <h2>Tags</h2>
+        <table id="tagsTable">
+          <thead><tr><th>Name</th><th style="width:80px;">Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+    <script>
+      (function(){
+        var path = location.pathname.replace(/\/+$/, '') || '/';
+        document.querySelectorAll('header nav a').forEach(function(a){
+          var href = a.getAttribute('href');
+          if(href === path) a.classList.add('active');
+        });
+      })();
+    </script>
+    <script src="/static/tags.js"></script>
+  </body>
+</html>

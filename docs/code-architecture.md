@@ -24,15 +24,17 @@ CTX_PRIORITY_MODE: recent-first
 │  ├─ server.py                # Threaded WSGI server start/stop utilities
 │  ├─ routes.py                # REST API: logs, profiles, records, ftp
 │  ├─ db.py                    # SQLite init/access (profiles, paths, records, images)
-│  ├─ views.py                 # Web views: /, /profiles, /records
+│  ├─ views.py                 # Web views: /, /profiles, /records, /tags
 │  ├─ templates/
 │  │  ├─ index.html            # Logs page (SPA shell)
 │  │  ├─ profiles.html         # Profiles management (SSH/FTP)
 │  │  ├─ records.html          # Records browse/upload
+│  │  ├─ tags.html            # Tag management
 │  │  └─ _record_form.html     # Shared record modal partial
 │  └─ static/
 │     ├─ app.js                # Logs page UI logic & scan table rendering
 │     ├─ record_form.js        # Reusable record form widget
+│     ├─ tags.js               # Tag management page logic
 │     └─ style.css             # Styles
 ├─ docs/
 │  ├─ env.md
@@ -55,12 +57,13 @@ CTX_PRIORITY_MODE: recent-first
 - app/routes.py: APIs
   - Logs: list, tail, search, download
   - Profiles: CRUD, paths CRUD (auto-split `| grep` into grep_chain`, optional cmd_suffix appended to cat/list), SSH cat+grep, FTP browse
-  - Records: CRUD and image upload
-- app/db.py: SQLite schema init and helpers (profiles, profile_paths, records, record_images).
-- app/views.py: Serves index.html, profiles.html, records.html.
+-  - Records: CRUD, image upload, tag attach
+-  - Tags: CRUD
+- app/db.py: SQLite schema init and helpers (profiles, profile_paths, records, record_images, tags).
+- app/views.py: Serves index.html, profiles.html, records.html, tags.html.
 - templates + static: Simple pages calling REST endpoints.
 - app/static/app.js: runs profile scans (cat for text paths, list for image paths) and renders a single-column scan table with match counts.
-- _record_form.html + record_form.js: reusable modal for creating/updating records with a grid-based image gallery showing filenames.
+- _record_form.html + record_form.js: reusable modal for creating/updating records with a grid-based image gallery and tag selector.
 
 ## External Dependencies
 - Flask, Werkzeug: web server and routing

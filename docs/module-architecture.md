@@ -27,9 +27,11 @@ graph TD
     T[templates/index.html]
     TP[templates/profiles.html]
     TR[templates/records.html]
+    TT[templates/tags.html]
     TF[templates/_record_form.html]
     S[static/app.js]
     RF[static/record_form.js]
+    TJ[static/tags.js]
     CSS[static/style.css]
   end
 
@@ -44,6 +46,7 @@ graph TD
   F --> T
   F --> TP
   F --> TR
+  F --> TT
   T --> TF
   TR --> TF
   T --> S
@@ -52,6 +55,8 @@ graph TD
   TR --> RF
   TR --> CSS
   TP --> CSS
+  TT --> TJ
+  TT --> CSS
 
   subgraph Communication Layer
     API[/HTTP: /api/.../]
@@ -73,5 +78,7 @@ graph TD
 - ui.logs.scan_table — static/app.js (match counts in register groups)
 - ui.logs.cat_text_paths — static/app.js (use cat for text register paths; list only for images)
 - api.profile_paths.pipe_split — app/routes.py (split `| grep` into grep_chain; capture cmd_suffix for cat/list)
+- ui.tags.page — templates/tags.html (tag CRUD page)
+- api.tags.crud — app/routes.py (tag list/add/remove)
 
 Keep this graph updated when imports or boundaries change.

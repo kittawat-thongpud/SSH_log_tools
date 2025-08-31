@@ -5,6 +5,8 @@ erDiagram
   PROFILES ||--o{ PROFILE_PATHS : has
   PROFILES ||--o{ RECORDS : creates
   RECORDS ||--o{ RECORD_IMAGES : has
+  RECORDS ||--o{ RECORD_TAGS : tagged
+  TAGS ||--o{ RECORD_TAGS : referenced
 
   PROFILES {
     int id PK
@@ -46,6 +48,17 @@ erDiagram
     string path // relative under data/images
     int created_at
   }
+
+  TAGS {
+    int id PK
+    string name
+    int created_at
+  }
+
+  RECORD_TAGS {
+    int record_id FK
+    int tag_id FK
+  }
 ```
 
 ```mermaid
@@ -56,6 +69,8 @@ flowchart TD
   A -->|Preview Remote Image| E((GET /api/profiles/:pid/image))
   F[Records UI] -->|Delete Image| G((DELETE /record_images/:iid))
   F -->|Delete Record| H((DELETE /records/:id))
+  H2[Tags UI] -->|Add Tag| I((POST /api/tags))
+  H2 -->|Delete Tag| J((DELETE /api/tags/:id))
 
   B -->|insert| R[RECORDS]
   C -->|download to data/images & insert| RI[RECORD_IMAGES]
@@ -65,6 +80,8 @@ flowchart TD
   G -->|if last link, remove file| FS[data/images]
   H -->|remove record & links| R
   H -->|for each unreferenced file, remove| FS
+  I -->|insert| T[TAGS]
+  J -->|delete| T
 ```
 
 Notes
