@@ -54,40 +54,8 @@
       </div>
     </div>
     <!-- Record Detail Modal -->
-    <div id="recModal" class="modal">
-      <div class="content">
-        <h3>Record Detail</h3>
-        <form id="recForm">
-          <input type="hidden" name="id" />
-          <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">
-            <label>Title
-              <input type="text" name="title" />
-            </label>
-            <label>Date/Time
-              <input type="datetime-local" name="event_dt" />
-            </label>
-          </div>
-          <label>Situation
-            <input type="text" name="situation" />
-          </label>
-          <label>Description
-            <textarea name="description" style="width:100%;height:90px"></textarea>
-          </label>
-          <div>
-            <strong>Images</strong>
-            <div id="recImgs" style="display:grid; grid-template-columns: repeat(auto-fill, 120px); gap:8px; margin:8px 0;"></div>
-            <div>
-              <input type="file" id="recAddImg" multiple accept="image/*" />
-              <button type="button" id="recAddImgBtn">Add Images</button>
-            </div>
-          </div>
-          <div class="actions">
-            <button type="button" id="recClose">Close</button>
-            <button type="submit">Save</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    {% include '_record_modal.html' %}
+    <script src="/static/record-modal.js"></script>
     <script>
       window.APP_CFG = {{ (app_cfg or {'apiTimeoutMs':30000}) | tojson }};
       // mark active nav
@@ -127,7 +95,7 @@
             const situation = rec.situation||'';
             const desc = (rec.description||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             tr.innerHTML = `<td>${rec.id}</td><td>${pm[rec.profile_id]||''}</td><td>${rec.file_path||''}</td><td>${logs}</td><td>${rec.title||''}</td><td>${situation}</td><td>${desc}</td><td>${imgs}</td><td>${situationDate}</td><td>${created}</td><td><button data-act=\"del\" data-id=\"${rec.id}\" style=\"border-color:#991b1b\">Delete</button></td>`;
-            tr.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; openDetail(rec); });
+            tr.addEventListener('click', (ev)=>{ if(ev.target.closest('button')) return; openRecordDetail(rec); });
             tb.appendChild(tr);
           });
       }
@@ -139,59 +107,9 @@
           if(r.ok){ load(); } else { alert('Delete failed'); }
         }
       });
-      function openDetail(rec){
-        const modal = document.getElementById('recModal');
-        const form = document.getElementById('recForm');
-        form.elements['id'].value = rec.id;
-        if(form.elements['path_ro']) form.elements['path_ro'].value = rec.file_path||'';
-        form.elements['title'].value = rec.title||'';
-        form.elements['situation'].value = rec.situation||'';
-        form.elements['description'].value = rec.description||'';
-        if(rec.event_time){ const dt = new Date(rec.event_time*1000); form.elements['event_dt'].value = new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,16); } else { form.elements['event_dt'].value=''; }
-        const grid = document.getElementById('recImgs'); grid.innerHTML='';
-        (rec.images||[]).forEach(img=>{
-          const wrap = document.createElement('div'); wrap.className='thumb';
-          wrap.innerHTML = `<img src="${img.url||img.path}" loading="lazy"><div class="meta"><span class="idx">#${img.id}</span><button type="button" data-act="imgview" data-src="${img.url||img.path}">View</button><button type="button" data-act="imgdel" data-id="${img.id}" style="border-color:#991b1b">Remove</button></div>`;
-          grid.appendChild(wrap);
-        });
-        modal.style.display='flex';
-      }
-      document.getElementById('recClose').addEventListener('click', ()=>{ document.getElementById('recModal').style.display='none'; });
-      document.getElementById('recForm').addEventListener('submit', async (e)=>{
-        e.preventDefault();
-        const f = e.target;
-        const payload = {
-          title: f.elements['title'].value,
-          situation: f.elements['situation'].value,
-          description: f.elements['description'].value,
-          event_time: (function(){ const v=f.elements['event_dt'].value; if(!v) return null; const t=Date.parse(v); return isNaN(t)? null : Math.floor(t/1000); })(),
-        };
-        const rid = f.elements['id'].value;
-        const r = await fetch(`/api/records/${rid}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-        if(r.ok){ alert('Saved'); document.getElementById('recModal').style.display='none'; load(); } else { alert('Save failed'); }
-      });
-      document.getElementById('recImgs').addEventListener('click', async (e)=>{
-        const btn = e.target.closest('button'); if(!btn) return;
-        if(btn.dataset.act==='imgview'){
-          const grid = document.getElementById('recImgs');
-          const urls = [...grid.querySelectorAll('img')].map(im=> im.getAttribute('src'));
-          const src = btn.dataset.src; const idx = urls.indexOf(src);
-          openImageViewer(urls, idx>=0?idx:0);
-          return;
-        }
-        if(btn.dataset.act==='imgdel'){
-          const iid = btn.dataset.id; const r = await fetch(`/api/record_images/${iid}`, { method:'DELETE' });
-          if(r.ok){ load(); document.getElementById('recModal').style.display='none'; }
-        }
-      });
-      document.getElementById('recAddImgBtn').addEventListener('click', async ()=>{
-        const input = document.getElementById('recAddImg'); const rid = document.getElementById('recForm').elements['id'].value;
-        const files = input.files||[]; if(!files.length) return;
-        for(const f of files){ const fd = new FormData(); fd.append('file', f); await fetch(`/api/records/${rid}/image`, { method:'POST', body: fd }); }
-        alert('Images added'); document.getElementById('recModal').style.display='none'; load();
-      });
       document.getElementById('profileSelect').addEventListener('change', (e)=>{ PROFILE_ID = e.target.value; setPref('records.PROFILE_ID', PROFILE_ID); load(); });
       (async ()=>{ await loadProfiles(); await load(); })();
+      window.addEventListener('recordSaved', ()=>{ load(); });
       // viewer fn (shared with Logs page)
       let IMG_VIEW = { arr: [], idx: 0 };
       function openImageViewer(arr, start){

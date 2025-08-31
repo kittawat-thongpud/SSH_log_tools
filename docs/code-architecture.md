@@ -26,11 +26,13 @@ CTX_PRIORITY_MODE: recent-first
 │  ├─ db.py                    # SQLite init/access (profiles, paths, records, images)
 │  ├─ views.py                 # Web views: /, /profiles, /records
 │  ├─ templates/
+│  │  ├─ _record_modal.html   # Reusable record form modal
 │  │  ├─ index.html            # Logs page (SPA shell)
 │  │  ├─ profiles.html         # Profiles management (SSH/FTP)
 │  │  └─ records.html          # Records browse/upload
 │  └─ static/
 │     ├─ app.js                # Logs page UI logic
+│     ├─ record-modal.js       # Record form modal widget
 │     └─ style.css             # Styles
 ├─ docs/
 │  ├─ env.md

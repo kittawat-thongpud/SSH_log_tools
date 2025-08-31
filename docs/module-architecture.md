@@ -27,7 +27,9 @@ graph TD
     T[templates/index.html]
     TP[templates/profiles.html]
     TR[templates/records.html]
+    TM[templates/_record_modal.html]
     S[static/app.js]
+    RM[static/record-modal.js]
     CSS[static/style.css]
   end
 
@@ -42,6 +44,10 @@ graph TD
   F --> T
   F --> TP
   F --> TR
+  T --> TM
+  TR --> TM
+  T --> RM
+  TR --> RM
   T --> S
   T --> CSS
   TP --> CSS
