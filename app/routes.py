@@ -798,10 +798,8 @@ def export_records():
         r["tags"] = tags
     # build workbook and zip with images
     import io
-    import re
     from openpyxl import Workbook
     from openpyxl.drawing.image import Image as XLImage
-    from openpyxl.styles import Alignment
     from openpyxl.worksheet.table import Table, TableStyleInfo
 
     wb = Workbook()
@@ -819,12 +817,15 @@ def export_records():
         "Event Date",
         "Create Date",
     ]
-    for col, h in enumerate(headers):
-        ws.write(0, col, h)
-    ws.set_column(img_col_idx, img_col_idx, cell_w)
+    for col, h in enumerate(headers, start=1):
+        ws.cell(row=1, column=col, value=h)
+    img_col_idx = headers.index("Images") + 1
+    from openpyxl.utils import get_column_letter
 
-    img_files = []
-    row_idx = 1
+    img_col_letter = get_column_letter(img_col_idx)
+    ws.column_dimensions[img_col_letter].width = 18
+
+    row_idx = 2
     for r in rows:
         tag_names = ", ".join(t.get("name", "") for t in r.get("tags", []))
         event_dt = (
@@ -835,23 +836,16 @@ def export_records():
         create_dt = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(r.get("created_at") or 0)
         )
-        ws.write_row(
-            row_idx,
-            0,
-            [
-                r.get("id"),
-                profs.get(r.get("profile_id"), r.get("profile_id")),
-                r.get("file_path"),
-                r.get("title"),
-                r.get("situation"),
-                r.get("description"),
-                tag_names,
-                "",
-                event_dt,
-                create_dt,
-            ],
-        )
-        ws.set_row(row_idx, cell_h)
+        ws.cell(row=row_idx, column=1, value=r.get("id"))
+        ws.cell(row=row_idx, column=2, value=profs.get(r.get("profile_id"), r.get("profile_id")))
+        ws.cell(row=row_idx, column=3, value=r.get("file_path"))
+        ws.cell(row=row_idx, column=4, value=r.get("title"))
+        ws.cell(row=row_idx, column=5, value=r.get("situation"))
+        ws.cell(row=row_idx, column=6, value=r.get("description"))
+        ws.cell(row=row_idx, column=7, value=tag_names)
+        ws.cell(row=row_idx, column=8, value="")
+        ws.cell(row=row_idx, column=9, value=event_dt)
+        ws.cell(row=row_idx, column=10, value=create_dt)
         imgs = r.get("images", [])
         if imgs:
             first = imgs[0]
@@ -860,17 +854,19 @@ def export_records():
             if p and os.path.isfile(src):
                 try:
                     img = XLImage(src)
-                    cell_ref = f"H{row_idx}"
+                    IMG_SIZE = 128
+                    img.width = IMG_SIZE
+                    img.height = IMG_SIZE
+                    cell_ref = f"{img_col_letter}{row_idx}"
                     ws.add_image(img, cell_ref)
-                    ws.row_dimensions[row_idx].height = img.height * 0.75
-                    col_width = img.width * 0.14
-                    if (
-                        ws.column_dimensions["H"].width is None
-                        or ws.column_dimensions["H"].width < col_width
-                    ):
-                        ws.column_dimensions["H"].width = col_width
+                    ws.row_dimensions[row_idx].height = IMG_SIZE * 0.75
+                    col_width = IMG_SIZE * 0.14
+                    current = ws.column_dimensions[img_col_letter].width or 0
+                    if current < col_width:
+                        ws.column_dimensions[img_col_letter].width = col_width
                 except Exception:
                     pass
+        row_idx += 1
     # create Excel table for easier filtering/sorting
     try:
         ref = f"A1:J{ws.max_row}"
@@ -885,16 +881,11 @@ def export_records():
     wb.save(bio)
     conn.close()
     bio.seek(0)
-    # allow custom download name; default to records.xlsx
-    fname = (request.args.get("name") or "records.xlsx").strip()
-    if not fname.lower().endswith(".xlsx"):
-        fname += ".xlsx"
-    safe_name = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
     return send_file(
         bio,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name=safe_name,
+        download_name="records.xlsx",
     )
 
 

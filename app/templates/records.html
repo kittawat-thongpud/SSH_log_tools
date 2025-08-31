@@ -183,10 +183,7 @@
     if(TAG_FILTER!=='all') params.append('tag', TAG_FILTER);
     if(START_DATE) params.append('start', START_DATE);
     if(END_DATE) params.append('end', END_DATE);
-    const defName = 'records.xlsx';
-    const name = prompt('File name', defName);
-    if(!name) return;
-    params.append('name', name);
+    const name = 'records.xlsx';
     const url = '/api/records/export?'+params.toString();
     if(window.showSaveFilePicker){
       try{
