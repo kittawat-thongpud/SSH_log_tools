@@ -62,10 +62,12 @@ function ensureProfileFolder(tbody, profileId, profileName){
   folder = document.createElement('tr');
   folder.className = 'folder-row result-row expanded';
   folder.dataset.pid = String(profileId);
-  folder.innerHTML = `<td colspan="3"><span class="caret"></span>${SVG_FOLDER}<strong style="margin-left:6px;">${escapeHtml(profileName)}</strong></td>`;
+  const headRow = document.querySelector('#resultTable thead tr');
+  const colCount = (headRow && headRow.children.length) || 1;
+  folder.innerHTML = `<td colspan="${colCount}"><span class="caret"></span>${SVG_FOLDER}<strong style="margin-left:6px;">${escapeHtml(profileName)}</strong></td>`;
   const container = document.createElement('tr');
   container.className = 'folder-container';
-  const td = document.createElement('td'); td.colSpan = 3; container.appendChild(td);
+  const td = document.createElement('td'); td.colSpan = colCount; container.appendChild(td);
   tbody.appendChild(folder); tbody.appendChild(container);
   folder.addEventListener('click', ()=>{
     folder.classList.toggle('expanded');
@@ -78,11 +80,13 @@ function addPathResultsUnder(tbody, profileId, profileName, path, lines, maxLine
   ensureProfileFolder(tbody, profileId, profileName);
   const containerTd = tbody.querySelector(`tr.folder-row[data-pid="${profileId}"] + tr.folder-container td`);
   const block = document.createElement('div'); block.className='path-block';
-  const title = document.createElement('div'); title.className='path-title'; title.innerHTML = `<span class="caret"></span>${SVG_FOLDER}<span>${escapeHtml(path)}</span><span class="badge">text</span>`;
   const tbl = document.createElement('table'); tbl.className='lines-table';
   const tb = document.createElement('tbody');
   const maxN = Math.max(1, parseInt(maxLines||200,10));
   const arr = (lines||[]).slice(-maxN);
+  const count = arr.length;
+  const title = document.createElement('div'); title.className='path-title';
+  title.innerHTML = `<span class="caret"></span>${SVG_FOLDER}<span>${escapeHtml(path)}</span><span class="badge">text</span><span class="muted"> (${count})</span>`;
   arr.forEach((ln, idx)=>{
     const r = document.createElement('tr'); r.style.cursor='pointer';
     r.innerHTML = `<td style="width:56px" class="muted">${idx+1}</td><td>${escapeHtml(ln)}</td>`;
@@ -118,11 +122,12 @@ function addTextFileResultsUnder(tbody, profileId, profileName, basePath, filePa
   const filesContainer = wrapper.querySelector('.files-container');
   // Each file gets its own small table
   const block = document.createElement('div'); block.className='path-block';
-  const title = document.createElement('div'); title.className='path-title'; title.innerHTML = `<span class="caret"></span>${SVG_FOLDER}<span>${escapeHtml(filePath)}</span>`;
   const tbl = document.createElement('table'); tbl.className='lines-table';
   const tb = document.createElement('tbody');
   const maxN = Math.max(1, parseInt(maxLines||200,10));
   const arr = (lines||[]).slice(-maxN);
+  const count = arr.length;
+  const title = document.createElement('div'); title.className='path-title'; title.innerHTML = `<span class="caret"></span>${SVG_FOLDER}<span>${escapeHtml(filePath)}</span><span class="muted"> (${count})</span>`;
   arr.forEach((ln, idx)=>{
     const r = document.createElement('tr'); r.style.cursor='pointer';
     r.innerHTML = `<td style=\"width:56px\" class=\"muted\">${idx+1}</td><td>${escapeHtml(ln)}</td>`;
