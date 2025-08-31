@@ -1,18 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-import os, sys, glob, shutil
+import os, sys, shutil
 from pathlib import Path
 from PyInstaller.building.build_main import Analysis, PYZ, EXE
 from PyInstaller.utils.hooks import collect_submodules
 
 APP_NAME = "SSH_Log_Tools"
 ENTRY    = "main.py"
-ICON     = "ssh_tools_record.ico"
+ICON     = "icon.ico"            # your build-time exe icon filename
 
-BASE = Path(os.getcwd())
-DIST = BASE / "dist"
+PROJECT_ROOT = Path(SPECPATH)    # ← safer than os.getcwd()
+DIST_ROOT    = Path(DISTPATH)    # ← respects --distpath
 
-# ---------- Hidden imports for your stack ----------
+# ---------- Hidden imports ----------
 hidden = []
 hidden += collect_submodules("flask")
 hidden += collect_submodules("jinja2")
@@ -26,7 +26,7 @@ hidden += collect_submodules("xlsxwriter")
 hidden += collect_submodules("olefile")
 hidden += ["ctypes"]  # defensive
 
-# ---------- Find libffi & MSVC runtime from Anaconda/venv ----------
+# ---------- Pick up ffi/vcruntime so _ctypes works ----------
 binaries = []
 
 def add_bins(root: Path, patterns: list[str]):
@@ -36,36 +36,19 @@ def add_bins(root: Path, patterns: list[str]):
         for p in root.glob(pat):
             binaries.append((str(p), "."))
 
-# venv / base DLLs locations
-VENV_DLLS  = Path(sys.prefix) / "DLLs"
-BASE_DLLS  = Path(sys.base_prefix) / "DLLs"
-
-# Anaconda layout (if env var exists)
-CONDA_LIBBIN = None
-cp = os.environ.get("CONDA_PREFIX")
-if cp:
-    cand = Path(cp) / "Library" / "bin"
-    if cand.exists():
-        CONDA_LIBBIN = cand
-
-# Collect libffi variants (names vary)
-ffi_patterns = ["libffi-*.dll", "ffi-*.dll", "libffi.dll", "ffi.dll"]
-add_bins(VENV_DLLS, ffi_patterns)
-add_bins(BASE_DLLS, ffi_patterns)
-if CONDA_LIBBIN:
-    add_bins(CONDA_LIBBIN, ffi_patterns)
-
-# Add MSVC runtime (defensive)
-# vcruntime may sit in the env root
-add_bins(Path(sys.prefix),  ["vcruntime140*.dll", "vcruntime*.dll"])
+# venv/base DLLs
+VENV_DLLS = Path(sys.prefix) / "DLLs"
+BASE_DLLS = Path(sys.base_prefix) / "DLLs"
+add_bins(VENV_DLLS, ["libffi-*.dll", "ffi-*.dll", "libffi.dll", "ffi.dll"])
+add_bins(BASE_DLLS, ["libffi-*.dll", "ffi-*.dll", "libffi.dll", "ffi.dll"])
+add_bins(Path(sys.prefix),      ["vcruntime140*.dll", "vcruntime*.dll"])
 add_bins(Path(sys.base_prefix), ["vcruntime140*.dll", "vcruntime*.dll"])
 
-# ---------- Build graph ----------
 a = Analysis(
-    [ENTRY],
-    pathex=[str(BASE)],
-    binaries=binaries,   # <- include ffi/vcruntime so _ctypes loads
-    datas=[],            # keep config/icon external at runtime
+    [str(PROJECT_ROOT / ENTRY)],
+    pathex=[str(PROJECT_ROOT)],
+    binaries=binaries,
+    datas=[],                 # keep config/icon external (not bundled)
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},
@@ -87,22 +70,22 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,            # set False if you hit UPX issues
+    upx=True,                 # set False if UPX causes issues
     upx_exclude=[],
-    runtime_tmpdir=None, # one-file
+    runtime_tmpdir=None,      # onefile
     console=False,
-    icon=[ICON] if (BASE / ICON).exists() else None,
+    icon=[str(PROJECT_ROOT / ICON)] if (PROJECT_ROOT / ICON).exists() else None,
 )
 
-# ---------- Copy external runtime files next to the EXE ----------
-try:
-    DIST.mkdir(exist_ok=True)
-    for fname in ("config.json", ICON):
-        src = BASE / fname
-        if src.exists():
-            shutil.copy2(src, DIST / src.name)
-            print(f"[spec] Copied {src} -> {DIST}")
-        else:
-            print(f"[spec] Info: {fname} not found at build time")
-except Exception as e:
-    print(f"[spec] Copy step warning: {e}")
+# ---------- Copy external files next to EXE (onefile) ----------
+# This places editable config and a runtime icon alongside the built .exe.
+for fname in ("config.json", ICON):
+    src = PROJECT_ROOT / fname
+    if src.exists():
+        try:
+            shutil.copy2(src, DIST_ROOT / src.name)
+            print(f"[spec] Copied {src} -> {DIST_ROOT}")
+        except Exception as e:
+            print(f"[spec] Copy failed for {src}: {e}")
+    else:
+        print(f"[spec] Info: {fname} not found at build time")
