@@ -27,7 +27,9 @@ graph TD
     T[templates/index.html]
     TP[templates/profiles.html]
     TR[templates/records.html]
+    TF[templates/_record_form.html]
     S[static/app.js]
+    RF[static/record_form.js]
     CSS[static/style.css]
   end
 
@@ -42,10 +44,14 @@ graph TD
   F --> T
   F --> TP
   F --> TR
+  T --> TF
+  TR --> TF
   T --> S
+  T --> RF
   T --> CSS
-  TP --> CSS
+  TR --> RF
   TR --> CSS
+  TP --> CSS
 
   subgraph Communication Layer
     API[/HTTP: /api/.../]

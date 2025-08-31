@@ -1,7 +1,6 @@
 let state = {
   profiles: [],
   selected: new Set(),
-  selectedImages: [], // for image-mode record creation
 };
 
 function cssEscape(s){
@@ -165,58 +164,6 @@ function addImageResultsUnder(tbody, profileId, profileName, path, files){
   containerTd.appendChild(block);
 }
 
-function openRecordModal(profileId, path, line){
-  const modal = document.getElementById('recordModal');
-  const form = document.getElementById('recordForm');
-  form.reset();
-  form.profile_id.value = profileId;
-  const pathInput = form.querySelector('input[name="file_path"]'); if(pathInput) pathInput.value = path;
-  const view = document.getElementById('recordLineView'); if(view) view.value = line||'';
-  // text mode UI
-  document.getElementById('selectedImagesBlock').style.display='none';
-  document.getElementById('recordLineView').parentElement.style.display='block';
-  state.selectedImages = [];
-  document.getElementById('selectedImagesJson').value = '[]';
-  setNow(form.querySelector('input[name="event_dt"]'));
-  dbg('openRecordModal', {profileId, path});
-  modal.style.display='flex';
-}
-function openImageRecordModal(profileId, imagePath){
-  const modal = document.getElementById('recordModal');
-  const form = document.getElementById('recordForm');
-  form.reset();
-  form.profile_id.value = profileId;
-  const pathInput2 = form.querySelector('input[name="file_path"]'); if(pathInput2) pathInput2.value = imagePath;
-  const view2 = document.getElementById('recordLineView'); if(view2) view2.value = '';
-  document.getElementById('recordLineView').parentElement.style.display='block';
-  const block = document.getElementById('selectedImagesBlock');
-  const list = document.getElementById('selectedImagesList');
-  list.innerHTML = '';
-  state.selectedImages = [imagePath];
-  document.getElementById('selectedImagesJson').value = JSON.stringify(state.selectedImages);
-  const urls = state.selectedImages.map(p => `/api/profiles/${profileId}/image?path=${encodeURIComponent(p)}`);
-  urls.forEach((u, idx)=>{
-    const t = document.createElement('div'); t.className='thumb';
-    const im = document.createElement('img'); im.src = u; t.appendChild(im);
-    const meta = document.createElement('div'); meta.className='meta';
-    const si = document.createElement('span'); si.className='idx'; si.textContent = `#${idx+1}`; meta.appendChild(si);
-    const vb = document.createElement('button'); vb.type = 'button'; vb.textContent='View'; vb.onclick = ()=>{
-      const imgs = Array.from(document.querySelectorAll('#selectedImagesList img'));
-      const arr = imgs.map(el=> el.src);
-      const pos = arr.indexOf(u);
-      openImageViewer(arr, pos>=0?pos:0);
-    }; meta.appendChild(vb);
-    t.appendChild(meta); list.appendChild(t);
-  });
-  block.style.display='block';
-  setNow(form.querySelector('input[name="event_dt"]'));
-  dbg('openImageRecordModal', {profileId, imagePath});
-  modal.style.display='flex';
-}
-function closeRecordModal(){
-  const modal = document.getElementById('recordModal');
-  modal.style.display='none';
-}
 
 async function runAll(){
   const runBtn = document.getElementById('runAll');
@@ -319,65 +266,4 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }
     });
   }
-  const form = document.getElementById('recordForm');
-  const cancel = document.getElementById('recordCancel');
-  if(cancel) cancel.onclick = closeRecordModal;
-  if(form){
-    form.onsubmit = async (e)=>{
-      e.preventDefault();
-      const fd = new FormData(form);
-      const payload = {
-        profile_id: Number(fd.get('profile_id')),
-        title: String(fd.get('title')||''),
-        file_path: String(fd.get('file_path')||''),
-        filter: '',
-        content: String(fd.get('content')||''),
-        situation: String(fd.get('situation')||''),
-        event_time: (function(){ const dt = fd.get('event_dt'); if(!dt) return null; const t = Date.parse(dt); return isNaN(t)? null : Math.floor(t/1000); })(),
-        description: String(fd.get('description')||''),
-      };
-      const r = await fetch('/api/records',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-      if(!r.ok){ alert('Failed to save record'); return; }
-      const rec = await r.json();
-      // upload selected remote images automatically
-      try{
-        const imgsSel = JSON.parse(document.getElementById('selectedImagesJson').value||'[]');
-        for(const rp of imgsSel){
-          await fetch(`/api/records/${rec.id}/image_remote`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ profile_id: payload.profile_id, path: rp }) });
-        }
-      }catch{}
-      const files = (document.querySelector('#recordForm input[name="images"]').files)||[];
-      for(const f of files){ const fdf = new FormData(); fdf.append('file', f); await fetch(`/api/records/${rec.id}/image`, { method:'POST', body: fdf }); }
-      closeRecordModal();
-      alert('Record saved');
-    };
-    // Local file preview when adding images before save
-    const fileInput = document.querySelector('#recordForm input[name="images"]');
-    if(fileInput){ fileInput.addEventListener('change', ()=>{
-      const list = document.getElementById('selectedImagesList');
-      const block = document.getElementById('selectedImagesBlock');
-      block.style.display='block';
-      for(const f of (fileInput.files||[])){
-        try{ const url = URL.createObjectURL(f); const t=document.createElement('div'); t.className='thumb'; const im=document.createElement('img'); im.src=url; t.appendChild(im); const m=document.createElement('div'); m.className='meta'; const s=document.createElement('span'); s.className='idx'; s.textContent=f.name; m.appendChild(s); const b=document.createElement('button'); b.type='button'; b.textContent='View'; b.onclick=()=>{ const imgs=Array.from(document.querySelectorAll('#selectedImagesList img')); const arr=imgs.map(el=>el.src); const pos=arr.indexOf(url); openImageViewer(arr, pos>=0?pos:0); }; m.appendChild(b); t.appendChild(m); list.appendChild(t); }catch{}
-      }
-    }); }
-  }
-});
-
-// Simple fullscreen image viewer
-let IMG_VIEW = { arr: [], idx: 0 };
-function openImageViewer(arr, start){
-  try{ IMG_VIEW.arr = arr||[]; IMG_VIEW.idx = Math.max(0, Math.min(start||0, IMG_VIEW.arr.length-1)); }catch{ IMG_VIEW={arr:[], idx:0}; }
-  const wrap = document.getElementById('imgViewer'); const img = document.getElementById('imgViewImg');
-  if(!wrap||!img) return;
-  const render = ()=>{ img.src = IMG_VIEW.arr[IMG_VIEW.idx]||''; };
-  render();
-  wrap.style.display='flex';
-  const prev = document.getElementById('imgViewPrev'); const next = document.getElementById('imgViewNext'); const close = document.getElementById('imgViewClose');
-  if(prev) prev.onclick = (e)=>{ e.stopPropagation(); if(IMG_VIEW.idx>0){ IMG_VIEW.idx--; render(); } };
-  if(next) next.onclick = (e)=>{ e.stopPropagation(); if(IMG_VIEW.idx<IMG_VIEW.arr.length-1){ IMG_VIEW.idx++; render(); } };
-  if(close) close.onclick = ()=>{ wrap.style.display='none'; };
-  wrap.onclick = ()=>{ wrap.style.display='none'; };
-  function esc(e){ if(e.key==='Escape'){ wrap.style.display='none'; document.removeEventListener('keydown', esc);} if(e.key==='ArrowLeft'){ if(IMG_VIEW.idx>0){ IMG_VIEW.idx--; render(); } } if(e.key==='ArrowRight'){ if(IMG_VIEW.idx<IMG_VIEW.arr.length-1){ IMG_VIEW.idx++; render(); } } }
-  document.addEventListener('keydown', esc);
-}
+  });
