@@ -3,7 +3,7 @@ env/
 .venv
 # PyInstaller build artifacts (requested)
 build/
-*.spec
+dist/
 
 # Optional: common local caches (safe defaults)
 __pycache__/
