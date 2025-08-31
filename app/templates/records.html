@@ -178,12 +178,37 @@
     END_DATE = document.getElementById('filterEnd').value;
     loadRecords();
   });
-  document.getElementById('exportBtn').addEventListener('click', ()=>{
+  document.getElementById('exportBtn').addEventListener('click', async ()=>{
     const params = new URLSearchParams();
     if(TAG_FILTER!=='all') params.append('tag', TAG_FILTER);
     if(START_DATE) params.append('start', START_DATE);
     if(END_DATE) params.append('end', END_DATE);
-    window.location = '/api/records/export?'+params.toString();
+    const defName = 'records.xlsx';
+    const name = prompt('File name', defName);
+    if(!name) return;
+    params.append('name', name);
+    const url = '/api/records/export?'+params.toString();
+    if(window.showSaveFilePicker){
+      try{
+        const resp = await fetch(url);
+        if(!resp.ok){ alert('Export failed'); return; }
+        const blob = await resp.blob();
+        const handle = await window.showSaveFilePicker({
+          suggestedName: name,
+          types:[{description:'Excel Workbook', accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      }catch(err){ console.error(err); }
+    }else{
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   });
   document.querySelectorAll('#tbl thead th[data-sort]').forEach(th=>{
     const key = th.dataset.sort;

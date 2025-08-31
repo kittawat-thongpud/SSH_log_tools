@@ -798,25 +798,15 @@ def export_records():
         r["tags"] = tags
     # build workbook and zip with images
     import io
-    import zipfile
-    import xlsxwriter
+    import re
+    from openpyxl import Workbook
+    from openpyxl.drawing.image import Image as XLImage
+    from openpyxl.styles import Alignment
+    from openpyxl.worksheet.table import Table, TableStyleInfo
 
-    cfg = load_config()
-    export_cfg = cfg.get("export") if isinstance(cfg.get("export"), dict) else {}
-    img_col_letter = export_cfg.get("image_column", "H")
-    img_col_idx = ord(img_col_letter.upper()) - ord("A")
-    cell_w = export_cfg.get("cell_width", 20)
-    cell_h = export_cfg.get("cell_height", 120)
-
-    wb_buffer = io.BytesIO()
-    wb = xlsxwriter.Workbook(wb_buffer, {"in_memory": True})
-    vba_path = os.path.join(os.path.dirname(__file__), "vbaProject.bin")
-    if os.path.isfile(vba_path):
-        # vbaProject.bin contains a macro that inserts images listed in the
-        # worksheet into their corresponding cells and resizes the cell to fit.
-        wb.add_vba_project(vba_path)
-    ws = wb.add_worksheet("records")
-
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "records"
     headers = [
         "ID",
         "Profile",
@@ -868,29 +858,43 @@ def export_records():
             p = first.get("path") or ""
             src = os.path.join(get_images_dir(), p)
             if p and os.path.isfile(src):
-                fname = os.path.basename(p)
-                rel = f"images/{fname}"
-                ws.write(row_idx, img_col_idx, rel)
-                img_files.append((src, rel))
-        row_idx += 1
-    wb.close()
-    wb_buffer.seek(0)
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("records.xlsx", wb_buffer.getvalue())
-        for src, rel in img_files:
-            try:
-                with open(src, "rb") as f:
-                    zf.writestr(rel, f.read())
-            except Exception:
-                pass
+                try:
+                    img = XLImage(src)
+                    cell_ref = f"H{row_idx}"
+                    ws.add_image(img, cell_ref)
+                    ws.row_dimensions[row_idx].height = img.height * 0.75
+                    col_width = img.width * 0.14
+                    if (
+                        ws.column_dimensions["H"].width is None
+                        or ws.column_dimensions["H"].width < col_width
+                    ):
+                        ws.column_dimensions["H"].width = col_width
+                except Exception:
+                    pass
+    # create Excel table for easier filtering/sorting
+    try:
+        ref = f"A1:J{ws.max_row}"
+        table = Table(displayName="RecordsTable", ref=ref)
+        style = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True)
+        table.tableStyleInfo = style
+        ws.add_table(table)
+    except Exception:
+        pass
+
+    bio = io.BytesIO()
+    wb.save(bio)
     conn.close()
-    zip_buffer.seek(0)
+    bio.seek(0)
+    # allow custom download name; default to records.xlsx
+    fname = (request.args.get("name") or "records.xlsx").strip()
+    if not fname.lower().endswith(".xlsx"):
+        fname += ".xlsx"
+    safe_name = re.sub(r"[^A-Za-z0-9_.-]", "_", fname)
     return send_file(
-        zip_buffer,
-        mimetype="application/zip",
+        bio,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name="records_export.zip",
+        download_name=safe_name,
     )
 
 
