@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Profiles - SSH Log Tools</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .context-menu { position:absolute; display:none; background:#111827; color:#e5e7eb; border:1px solid #374151; padding:6px; border-radius:6px; z-index:9999; }
+      .context-menu button { display:block; width:100%; padding:6px 10px; background:transparent; color:inherit; border:none; text-align:left; }
+      .context-menu button:hover { background:#374151; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>SSH Log Tools</h1>
+      <nav>
+        <a href="/">Logs</a>
+        <a href="/profiles">Profiles</a>
+        <a href="/records">Records</a>
+        <a href="/docs" target="_blank">API Docs</a>
+      </nav>
+      <div class="actions"></div>
+    </header>
+    <main class="grid">
+      <section>
+        <div class="panel">
+          <h2>Profile</h2>
+          <div id="formMsg" class="alert" style="display:none"></div>
+          <form id="profileForm">
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div><label>Name</label><input name="name" required /></div>
+              <div><label>Protocol</label>
+                <select name="protocol"><option value="ssh">SSH</option><option value="ftp">FTP</option></select>
+              </div>
+              <div><label>Host</label><input name="host" required /></div>
+              <div><label>Port</label><input name="port" type="number" value="22" /></div>
+              <div><label>Username</label><input name="username" /></div>
+              <div><label>Password</label><input name="password" type="password" /></div>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+              <button type="button" id="btnDelete" style="border-color:#991b1b; display:none;">Delete</button>
+              <button type="button" id="btnClear">Clear</button>
+              <button type="submit" id="btnSave">Create</button>
+            </div>
+          </form>
+        </div>
+        <div class="panel" style="margin-top: 12px;">
+          <h2>Profiles</h2>
+          <table id="profilesTable">
+            <thead><tr><th>Name</th><th>Proto</th><th>Host</th><th>Port</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        
+        <div class="panel" style="margin-top: 12px;">
+          <h2>Registered Paths</h2>
+          <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+            <input id="newPath" type="text" placeholder="/var/log/*.log or /var/images/*.png" style="flex:1" />
+            <label style="display:flex; align-items:center; gap:6px;">
+              Type
+              <select id="newPathType">
+                <option value="auto" selected>Auto (detect)</option>
+                <option value="text">Text lines (.log/.txt/.md)</option>
+                <option value="image">Images (png/jpg/gif/...)</option>
+              </select>
+            </label>
+            <button id="btnAddPath">Add</button>
+          </div>
+          <div class="muted" style="margin:6px 0 8px; font-size:12px;">
+            For Text type, the app tails last N lines. For Images, the app lists matching image files. Grep/pipelines apply only to Text.
+          </div>
+          <table id="pathsTable">
+            <thead><tr><th>Path</th><th style="width:120px;">Type</th><th style="width:180px;">Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <div class="panel" id="sshPanel">
+          <h2>Query (SSH cat + grep)</h2>
+          <form id="queryForm">
+            <label>Pattern <input name="pattern" placeholder="/var/log/auth*.log" /></label>
+            <label>Grep <input name="grep" placeholder="ERROR" /></label>
+            <button type="submit">Run</button>
+          </form>
+          <div id="sshMsg" class="alert" style="display:none"></div>
+          <table id="resultTable">
+            <thead><tr><th>Line</th><th>Text</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="panel" id="ftpPanel" style="margin-top:12px;">
+          <h2>FTP Browse</h2>
+          <form id="ftpForm">
+            <label>Path <input name="path" value="/" /></label>
+            <button type="submit">List</button>
+          </form>
+          <div id="ftpMsg" class="alert" style="display:none"></div>
+          <table id="ftpTable">
+            <thead><tr><th>Raw</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script>
+      window.APP_CFG = {{ (app_cfg or {'apiTimeoutMs':30000}) | tojson }};
+    </script>
+    <div class="context-menu" id="ctx">
+      <button id="ctxRecord">Record log</button>
+    </div>
+    <script>
+      // mark active nav
+      (function(){
+        var path = location.pathname.replace(/\/+$/, '') || '/';
+        document.querySelectorAll('header nav a').forEach(function(a){
+          var href = a.getAttribute('href');
+          if(href === path) a.classList.add('active');
+        });
+      })();
+      // simple prefs
+      const PREF_NS='sshlt_';
+      function setPref(k,v){ try{ localStorage.setItem(PREF_NS+k, JSON.stringify(v)); }catch{} }
+      function getPref(k,d){ try{ const v=localStorage.getItem(PREF_NS+k); return v? JSON.parse(v): d; }catch{ return d; } }
+      let SELECTED = null; // selected profile id
+      function selectRow(row){
+        document.querySelectorAll('#profilesTable tbody tr').forEach(tr=> tr.classList.remove('active'));
+        if(row){ row.classList.add('active'); }
+      }
+      function fillForm(p){
+        const f = document.getElementById('profileForm');
+        if(!f) return;
+        f.name.value = p?.name||''; f.protocol.value = p?.protocol||'ssh';
+        f.host.value = p?.host||''; f.port.value = (p && p.port) ? p.port : '22'; f.username.value = p?.username||''; f.password.value = p?.password||'';
+        const del = document.getElementById('btnDelete');
+        const save = document.getElementById('btnSave');
+        if(del) del.style.display = SELECTED ? '' : 'none';
+        if(save) save.textContent = SELECTED ? 'Update' : 'Create';
+        const msg = document.getElementById('formMsg'); if(msg) msg.style.display='none';
+      }
+      function fillEdit(p){ fillForm(p); }
+      const PATH_GREP = {};
+      function chipsInit(container, values){
+        const input = container.querySelector('input');
+        function render(){
+          [...container.querySelectorAll('.chip')].forEach(n=>n.remove());
+          values.forEach((v,idx)=>{
+            const chip = document.createElement('span'); chip.className='chip'; chip.innerHTML = `${v} <button title="Remove">×</button>`;
+            chip.querySelector('button').onclick = ()=>{ values.splice(idx,1); render(); };
+            container.insertBefore(chip, input);
+          });
+        }
+        input.addEventListener('keydown', (e)=>{
+          if(e.key==='Enter' || e.key===','){
+            e.preventDefault(); const v = input.value.trim(); if(v){ values.push(v); input.value=''; render(); }
+          }
+          if(e.key==='Backspace' && !input.value && values.length){ values.pop(); render(); }
+        });
+        render();
+      }
+      async function loadPaths(){
+        const tb = document.querySelector('#pathsTable tbody'); tb.innerHTML='';
+        if(!SELECTED){ return; }
+        const r = await fetch(`/api/profiles/${SELECTED}/paths`); const data = await r.json();
+        (data.paths||[]).forEach(item=>{
+          const tr = document.createElement('tr'); tr.dataset.id = item.id;
+          const tdPath = document.createElement('td');
+          const span = document.createElement('span'); span.className='path-text'; span.textContent = item.path; tdPath.appendChild(span);
+          const tdType = document.createElement('td'); tdType.className='path-type'; tdType.textContent = (item.type||'text');
+          const tdAct = document.createElement('td');
+          const btnEdit = document.createElement('button'); btnEdit.textContent = 'Edit'; btnEdit.dataset.act='edit'; btnEdit.dataset.id=item.id;
+          const btnDel = document.createElement('button'); btnDel.textContent = 'Delete'; btnDel.style.borderColor='#991b1b'; btnDel.dataset.act='delete'; btnDel.dataset.id=item.id;
+          tdAct.appendChild(btnEdit); tdAct.appendChild(document.createTextNode(' ')); tdAct.appendChild(btnDel);
+          tr.appendChild(tdPath); tr.appendChild(tdType); tr.appendChild(tdAct); tb.appendChild(tr);
+        });
+      }
+      function updatePanels(){
+        const ssh = document.getElementById('sshPanel');
+        const ftp = document.getElementById('ftpPanel');
+        if(!SELECTED){ ssh.style.display='none'; ftp.style.display='none'; return; }
+        const row = document.querySelector('#profilesTable tbody tr.active');
+        const proto = row ? String(row.dataset.protocol||'').toLowerCase() : '';
+        ssh.style.display = (proto==='ssh')? '' : 'none';
+        ftp.style.display = (proto==='ftp')? '' : 'none';
+      }
+      async function loadProfiles(){
+        const r = await fetch('/api/profiles');
+        const data = await r.json();
+        const tbody = document.querySelector('#profilesTable tbody');
+        tbody.innerHTML = '';
+        const list = data.profiles||[];
+        const last = getPref('profiles.SELECTED', null);
+        list.forEach(p=>{
+          const tr = document.createElement('tr');
+          tr.dataset.id = p.id; tr.dataset.protocol=String(p.protocol||'').toLowerCase();
+          tr.innerHTML = `<td>${p.name}</td><td>${p.protocol}</td><td>${p.host}</td><td>${p.port}</td>`;
+          tr.addEventListener('click', ()=>{ SELECTED = p.id; selectRow(tr); fillForm(p); loadPaths(); updatePanels(); setPref('profiles.SELECTED', SELECTED); });
+          tbody.appendChild(tr);
+        });
+        // auto-select first
+        if(list.length){
+          let idx = 0; let chosen = list[0];
+          if(last){ const found = list.find(p=> String(p.id)===String(last)); if(found){ chosen = found; idx = list.findIndex(p=> p.id===found.id); }}
+          SELECTED = chosen.id; selectRow(tbody.querySelectorAll('tr')[idx]); fillForm(chosen); loadPaths(); setPref('profiles.SELECTED', SELECTED);
+        }
+        updatePanels();
+      }
+      // Combined create/update form
+      document.getElementById('profileForm').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const f = document.getElementById('profileForm');
+        const msg = document.getElementById('formMsg'); if(msg) msg.style.display='none';
+        const fd = new FormData(f);
+        const payload = Object.fromEntries(fd.entries());
+        payload.port = Number(payload.port|| (payload.protocol==='ssh'?22:21));
+        if(!SELECTED){
+          const r = await fetch('/api/profiles',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+          if(r.ok){ f.reset(); await loadProfiles(); if(msg){ msg.className='alert info'; msg.textContent='Created profile'; msg.style.display='block'; } }
+          else if(r.status===409){ if(msg){ msg.className='alert error'; msg.textContent='Profile name already exists'; msg.style.display='block'; } }
+          else { if(msg){ msg.className='alert error'; msg.textContent='Create failed'; msg.style.display='block'; } }
+        } else {
+          const r = await fetch(`/api/profiles/${SELECTED}`,{ method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+          if(r.ok){ await loadProfiles(); if(msg){ msg.className='alert info'; msg.textContent='Updated profile'; msg.style.display='block'; } }
+          else if(r.status===409){ if(msg){ msg.className='alert error'; msg.textContent='Profile name already exists'; msg.style.display='block'; } }
+          else { if(msg){ msg.className='alert error'; msg.textContent='Update failed'; msg.style.display='block'; } }
+        }
+      });
+      // default port behavior
+      (function(){
+        const f = document.getElementById('profileForm');
+        const proto = f.querySelector('select[name="protocol"]');
+        const port = f.querySelector('input[name="port"]');
+        proto.addEventListener('change', ()=>{ port.value = (proto.value==='ssh'?22:21); });
+      })();
+      document.getElementById('btnDelete').addEventListener('click', async ()=>{
+        if(!SELECTED) return; if(!confirm('Delete profile?')) return;
+        const r = await fetch(`/api/profiles/${SELECTED}`,{ method:'DELETE' });
+        if(r.ok){ SELECTED=null; await loadProfiles(); document.querySelector('#pathsTable tbody').innerHTML=''; fillForm(null); updatePanels(); }
+      });
+      // Clear form: keep query container visible; clear results separately and reset port to 22
+      document.getElementById('btnClear').addEventListener('click', ()=>{
+        SELECTED = null;
+        fillForm(null);
+        selectRow(null);
+        // Do NOT call updatePanels(); keep current query panel visible
+        const qr = document.querySelector('#resultTable tbody'); if(qr) qr.innerHTML='';
+        const fr = document.querySelector('#ftpTable tbody'); if(fr) fr.innerHTML='';
+        const qf = document.getElementById('queryForm'); if(qf){ const inpP = qf.querySelector('input[name="pattern"]'); const inpG = qf.querySelector('input[name="grep"]'); if(inpP) inpP.value=''; if(inpG) inpG.value=''; }
+      });
+      // Paths
+      document.getElementById('btnAddPath').addEventListener('click', async ()=>{
+        const input = document.getElementById('newPath'); const path = input.value.trim();
+        const typ = (document.getElementById('newPathType').value||'text');
+        if(!SELECTED){ alert('Select a profile first'); return; }
+        if(!path){ return; }
+        const r = await fetch(`/api/profiles/${SELECTED}/paths`,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path, type: typ})});
+        if(r.ok){ input.value=''; loadPaths(); } else { alert('Failed to add path'); }
+      });
+      // Inline edit/delete for registered paths
+      document.getElementById('pathsTable').addEventListener('click', async (e)=>{
+        const btn = e.target.closest('button'); if(!btn) return;
+        const act = btn.dataset.act; const id = Number(btn.dataset.id);
+        const tr = btn.closest('tr'); if(!tr) return;
+        if(act === 'delete'){
+          if(!confirm('Delete this path?')) return;
+          const r = await fetch(`/api/profile_paths/${id}`, { method:'DELETE' });
+          if(r.ok){ loadPaths(); } else { alert('Delete failed'); }
+          return;
+        }
+        if(act === 'edit'){
+          const tdPath = tr.querySelector('td');
+          const current = (tr.querySelector('.path-text')?.textContent)||'';
+          tdPath.innerHTML = '<input type="text" style="width:100%">';
+          const input = tdPath.querySelector('input'); input.value = current; input.focus();
+          const tdTypeCell = tr.children[1];
+          const currentType = (tdTypeCell.textContent||'text').trim();
+          tdTypeCell.innerHTML = '<select><option value="auto">auto</option><option value="text">text</option><option value="image">image</option></select>';
+          const sel = tdTypeCell.querySelector('select'); sel.value = (currentType==='image'||currentType==='text')? currentType : 'auto';
+          const tdAct = tr.children[2];
+          tdAct.innerHTML = '';
+          const bSave = document.createElement('button'); bSave.textContent='Save'; bSave.dataset.act='save'; bSave.dataset.id=id;
+          const bCancel = document.createElement('button'); bCancel.textContent='Cancel'; bCancel.dataset.act='cancel'; bCancel.dataset.id=id;
+          tdAct.appendChild(bSave); tdAct.appendChild(document.createTextNode(' ')); tdAct.appendChild(bCancel);
+          return;
+        }
+        if(act === 'cancel'){
+          loadPaths();
+          return;
+        }
+        if(act === 'save'){
+          const tdPath = tr.querySelector('td');
+          const input = tdPath.querySelector('input');
+          const newPath = (input && input.value ? input.value.trim() : '');
+          const tdTypeCell = tr.children[1];
+          const sel = tdTypeCell.querySelector('select'); const newType = sel ? sel.value : 'text';
+          if(!newPath){ alert('Path required'); return; }
+          const r = await fetch(`/api/profile_paths/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path: newPath, type: newType })});
+          if(r.ok){ loadPaths(); } else { alert('Update failed'); }
+          return;
+        }
+      });
+      // SSH Query
+      document.getElementById('queryForm').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const msg = document.getElementById('sshMsg'); msg.style.display='none';
+        if(!SELECTED){ msg.className='alert error'; msg.textContent='Select an SSH profile first'; msg.style.display='block'; return; }
+        const tr = document.querySelector('#profilesTable tbody tr.active');
+        if(tr && tr.dataset.protocol !== 'ssh'){ msg.className='alert error'; msg.textContent='Selected profile is not SSH'; msg.style.display='block'; return; }
+        const fd = new FormData(e.target);
+        const rawPattern = (fd.get('pattern')||'').trim();
+        if(!rawPattern){ msg.className='alert error'; msg.textContent='Pattern required (e.g., /var/log/*.log)'; msg.style.display='block'; return; }
+        if(rawPattern === '/' ){ msg.className='alert info'; msg.textContent='"/" is a directory. Use a specific file path or a glob like /var/log/*.log'; msg.style.display='block'; return; }
+        const pattern = encodeURIComponent(rawPattern); const grep = encodeURIComponent(fd.get('grep'));
+        const r = await fetch(`/api/profiles/${SELECTED}/cat?pattern=${pattern}&grep=${grep}`);
+        const data = await r.json();
+        if(!r.ok){ msg.className='alert error'; msg.textContent = data.error||'SSH query failed'; msg.style.display='block'; return; }
+        const tbody = document.querySelector('#resultTable tbody');
+        tbody.innerHTML = '';
+        (data.lines||[]).forEach((line,i)=>{
+          const tr = document.createElement('tr');
+          tr.dataset.text=line; tr.dataset.pid=SELECTED; tr.dataset.pattern=fd.get('pattern'); tr.dataset.grep=fd.get('grep');
+          tr.innerHTML = `<td>${i+1}</td><td>${line.replace(/[<>]/g, s=>({'<':'&lt;','>':'&gt;'}[s]))}</td>`;
+          tbody.appendChild(tr);
+        });
+      });
+      // FTP
+      document.getElementById('ftpForm').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const msg = document.getElementById('ftpMsg'); msg.style.display='none';
+        if(!SELECTED){ msg.className='alert error'; msg.textContent='Select an FTP profile first'; msg.style.display='block'; return; }
+        const trActive = document.querySelector('#profilesTable tbody tr.active');
+        if(trActive && trActive.dataset.protocol !== 'ftp'){ msg.className='alert error'; msg.textContent='Selected profile is not FTP'; msg.style.display='block'; return; }
+        const fd = new FormData(e.target); const path=encodeURIComponent(fd.get('path'));
+        const r = await fetch(`/api/profiles/${SELECTED}/ftp/list?path=${path}`);
+        const data = await r.json();
+        const tbody = document.querySelector('#ftpTable tbody'); tbody.innerHTML='';
+        if(!r.ok){ msg.className='alert error'; msg.textContent = data.error||'FTP list failed'; msg.style.display='block'; return; }
+        (data.items||[]).forEach(item=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${(item.raw||'').replace(/[<>]/g, s=>({'<':'&lt;','>':'&gt;'}[s]))}</td>`;
+          tbody.appendChild(tr);
+        });
+      });
+      // Context menu for recording
+      const ctx = document.getElementById('ctx');
+      let ctxTarget = null;
+      document.addEventListener('contextmenu', (e)=>{
+        const tr = e.target.closest('#resultTable tbody tr');
+        if(tr){ e.preventDefault(); ctxTarget = tr; ctx.style.display='block'; ctx.style.left = e.pageX+'px'; ctx.style.top = e.pageY+'px'; }
+        else { ctx.style.display='none'; }
+      });
+      document.body.addEventListener('click', ()=>{ ctx.style.display='none'; });
+      document.getElementById('ctxRecord').addEventListener('click', async ()=>{
+        if(!ctxTarget) return;
+        const pid = Number(ctxTarget.dataset.pid);
+        const content = ctxTarget.dataset.text;
+        const payload = { profile_id: pid, title: 'Recorded log', file_path: ctxTarget.dataset.pattern, filter: ctxTarget.dataset.grep, content };
+        const r = await fetch('/api/records',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+        if(r.ok){ alert('Recorded. See Records page.'); }
+      });
+      loadProfiles();
+    </script>
+  </body>
+  </html>

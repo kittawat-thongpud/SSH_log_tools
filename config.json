@@ -1,0 +1,31 @@
+{
+  "host": "0.0.0.0",
+  "port": 5000,
+  "logging": {
+    "path": "logs",
+    "filename": "{date}.log",
+    "max_bytes": 1048576,
+    "console": true,
+    "console_level": "DEBUG"
+  },
+  "ui": {
+    "show_on_start": true,
+    "message": "App is begin!!",
+    "title": "SSH Log Tools",
+    "hide_console": false,
+    "icon_path": "",
+    "author_name": "Kittawat Thongpud",
+    "author_email": "Thongpud.k@gmail.com"
+  },
+  "api": {
+    "ssh_timeout": 15,
+    "client_timeout_ms": 30000
+  },
+  "images_cache": {
+    "ttl": 60,
+    "max_bytes": 20971520
+  },
+  "logs": [
+    {"name": "ExampleSSH", "path": "C:/ProgramData/ssh/logs/sshd.log"}
+  ]
+}

@@ -1,0 +1,15 @@
+# Python virtual environment (requested)
+env/
+.venv
+# PyInstaller build artifacts (requested)
+build/
+*.spec
+
+# Optional: common local caches (safe defaults)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+logs/
