@@ -1,5 +1,8 @@
 const RECORD_FORM_STATE = { selectedImages: [], selectedTags: [] };
-let TAGS = [];
+// Use var and reuse existing global to avoid redeclaration errors when this
+// script is loaded on multiple pages.
+var TAGS = window.TAGS || [];
+window.TAGS = TAGS;
 async function loadTagCache(){
   try{
     const r = await fetch('/api/tags');
