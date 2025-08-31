@@ -28,9 +28,11 @@ CTX_PRIORITY_MODE: recent-first
 │  ├─ templates/
 │  │  ├─ index.html            # Logs page (SPA shell)
 │  │  ├─ profiles.html         # Profiles management (SSH/FTP)
-│  │  └─ records.html          # Records browse/upload
+│  │  ├─ records.html          # Records browse/upload
+│  │  └─ _record_form.html     # Shared record modal partial
 │  └─ static/
-│     ├─ app.js                # Logs page UI logic
+│     ├─ app.js                # Logs page UI logic & scan table rendering
+│     ├─ record_form.js        # Reusable record form widget
 │     └─ style.css             # Styles
 ├─ docs/
 │  ├─ env.md
@@ -52,11 +54,13 @@ CTX_PRIORITY_MODE: recent-first
 - app/config.py: Reads config.json, validates/normalizes log entries, configures logging.
 - app/routes.py: APIs
   - Logs: list, tail, search, download
-  - Profiles: CRUD, paths CRUD, SSH cat+grep, FTP browse
+  - Profiles: CRUD, paths CRUD (auto-split `| grep` into grep_chain), SSH cat+grep, FTP browse
   - Records: CRUD and image upload
 - app/db.py: SQLite schema init and helpers (profiles, profile_paths, records, record_images).
 - app/views.py: Serves index.html, profiles.html, records.html.
 - templates + static: Simple pages calling REST endpoints.
+- app/static/app.js: runs profile scans and renders a single-column scan table with match counts.
+- _record_form.html + record_form.js: reusable modal for creating/updating records with a grid-based image gallery showing filenames.
 
 ## External Dependencies
 - Flask, Werkzeug: web server and routing
