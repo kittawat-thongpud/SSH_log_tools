@@ -90,24 +90,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
         description:String(fd.get('description')||''),
         tags:(function(){ try{ return JSON.parse(fd.get('tags_json')||'[]'); }catch{ return []; } })()
       };
-      let rec=null;
+      let rec = null;
+      let recId = id;
       if(id){
-        const r=await fetch(`/api/records/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const r = await fetch(`/api/records/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         if(!r.ok){ alert('Save failed'); return; }
-        try{ rec=await r.json(); }catch{ rec={id}; }
+        try{ rec = await r.json(); }catch{ rec = {}; }
+        recId = rec && rec.id ? rec.id : id;
       } else {
-        const r=await fetch('/api/records', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const r = await fetch('/api/records', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         if(!r.ok){ alert('Failed to save record'); return; }
-        rec=await r.json();
-        try{
-          const imgsSel=JSON.parse(document.getElementById('selectedImagesJson').value||'[]');
-          for(const rp of imgsSel){
-            await fetch(`/api/records/${rec.id}/image_remote`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ profile_id: payload.profile_id, path: rp }) });
-          }
-        }catch{}
+        rec = await r.json();
+        recId = rec.id;
       }
-      const files=(form.querySelector('input[name="images"]').files)||[];
-      for(const f of files){ const fdf=new FormData(); fdf.append('file', f); await fetch(`/api/records/${rec.id}/image`, { method:'POST', body:fdf }); }
+      if(rec) rec.id = recId;
+      try{
+        const imgsSel = JSON.parse(document.getElementById('selectedImagesJson').value||'[]');
+        for(const rp of imgsSel){
+          await fetch(`/api/records/${recId}/image_remote`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ profile_id: payload.profile_id, path: rp }) });
+        }
+      }catch{}
+      const files = (form.querySelector('input[name="images"]').files)||[];
+      for(const f of files){ const fdf=new FormData(); fdf.append('file', f); await fetch(`/api/records/${recId}/image`, { method:'POST', body:fdf }); }
       closeRecordForm();
       document.dispatchEvent(new CustomEvent('recordFormSaved', { detail: rec }));
       alert('Record saved');

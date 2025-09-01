@@ -95,6 +95,7 @@ Startup UI
 Excel Export
 - `/api/records/export` downloads an Excel file of records.
 - Image placement and sizing are configured via `export.cell_width`, `export.cell_height`, and `export.image_column`.
+- Multiple images in a record are stacked within the images cell with a small margin.
 
 API Overview
 - Logs

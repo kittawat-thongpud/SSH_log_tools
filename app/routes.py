@@ -5,7 +5,7 @@ import logging
 import sqlite3
 import json
 from typing import List, Dict, Any, Optional
-from flask import Blueprint, jsonify, request, send_file, abort, Response
+from flask import Blueprint, jsonify, request, send_file, abort, Response, url_for
 from .config import load_config, get_log_by_name
 from .db import get_db, row_to_dict, get_images_dir
 
@@ -800,10 +800,9 @@ def export_records():
     import io
     from openpyxl import Workbook
     from openpyxl.drawing.image import Image as XLImage
-    from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor, AnchorMarker
     from openpyxl.worksheet.table import Table, TableStyleInfo
     from openpyxl.styles import Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
+    from openpyxl.utils import get_column_letter, column_index_from_string
     from openpyxl.utils.units import points_to_pixels, pixels_to_EMU
     from openpyxl.drawing.spreadsheet_drawing import (
         AnchorMarker,
@@ -829,8 +828,14 @@ def export_records():
     for col, h in enumerate(headers, start=1):
         ws.cell(row=1, column=col, value=h)
     img_col_idx = headers.index("Images") + 1
-    img_col_letter = get_column_letter(img_col_idx)
-    ws.column_dimensions[img_col_letter].width = 18
+    cfg = load_config()
+    export_cfg = cfg.get("export") if isinstance(cfg.get("export"), dict) else {}
+    img_col_letter = str(export_cfg.get("image_column", get_column_letter(img_col_idx))).upper()
+    img_col_idx = column_index_from_string(img_col_letter)
+    ws.column_dimensions[img_col_letter].width = export_cfg.get("cell_width", 18)
+    cell_height = export_cfg.get("cell_height", 96)
+    cell_height_px = points_to_pixels(cell_height)
+    MARGIN = 4  # pixels around each image
 
     row_idx = 2
     for r in rows:
@@ -855,24 +860,27 @@ def export_records():
         ws.cell(row=row_idx, column=10, value=create_dt)
         imgs = r.get("images", [])
         if imgs:
-            first = imgs[0]
-            p = first.get("path") or ""
-            src = os.path.join(get_images_dir(), p)
-            if p and os.path.isfile(src):
+            # Ensure column width fits the image plus margins
+            col_width = ws.column_dimensions[img_col_letter].width or 0
+            min_col_px = (cell_height_px - 2 * MARGIN) + 2 * MARGIN
+            if col_width * 7 < min_col_px:
+                col_width = min_col_px / 7
+                ws.column_dimensions[img_col_letter].width = col_width
+            col_px = ws.column_dimensions[img_col_letter].width * 7
+            row_height = cell_height * len(imgs)
+            ws.row_dimensions[row_idx].height = row_height
+            img_size = max(cell_height_px - 2 * MARGIN, 1)
+            for idx, info in enumerate(imgs):
+                p = (info.get("path") or "").strip()
+                src = os.path.join(get_images_dir(), p)
+                if not p or not os.path.isfile(src):
+                    continue
                 try:
                     img = XLImage(src)
-                    IMG_SIZE = 128
-                    img.width = IMG_SIZE
-                    img.height = IMG_SIZE
-                    ws.row_dimensions[row_idx].height = IMG_SIZE * 0.75
-                    col_width = IMG_SIZE * 0.14
-                    current = ws.column_dimensions[img_col_letter].width or 0
-                    if current < col_width:
-                        ws.column_dimensions[img_col_letter].width = col_width
-                    col_px = ws.column_dimensions[img_col_letter].width * 7
-                    row_px = points_to_pixels(ws.row_dimensions[row_idx].height)
-                    x_off = max((col_px - IMG_SIZE) / 2, 0)
-                    y_off = max((row_px - IMG_SIZE) / 2, 0)
+                    img.width = img_size
+                    img.height = img_size
+                    x_off = max((col_px - img_size) / 2, 0)
+                    y_off = idx * cell_height_px + MARGIN
                     marker = AnchorMarker(
                         col=img_col_idx - 1,
                         row=row_idx - 1,
@@ -882,12 +890,12 @@ def export_records():
                     img.anchor = OneCellAnchor(
                         _from=marker,
                         ext=XDRPositiveSize2D(
-                            pixels_to_EMU(IMG_SIZE), pixels_to_EMU(IMG_SIZE)
+                            pixels_to_EMU(img_size), pixels_to_EMU(img_size)
                         ),
                     )
                     ws.add_image(img)
                 except Exception:
-                    pass
+                    continue
         row_idx += 1
     # auto-adjust column widths, center content, wrap text, and add borders
     wrap_cols = {3, 6, 7}
@@ -1078,7 +1086,10 @@ def _sanitize_rel_path(p: str) -> str:
 
 def _public_image_url(rel_path: str) -> str:
     rel = rel_path.replace("\\", "/").lstrip("/")
-    return f"/media/{rel}"
+    try:
+        return url_for("api.media_file", subpath=rel)
+    except RuntimeError:
+        return f"/api/media/{rel}"
 
 
 @bp.post("/records/<int:rid>/image")

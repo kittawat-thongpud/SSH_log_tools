@@ -30,7 +30,7 @@ SSH Log Tools is a local-first log browsing utility with a system tray controlle
 - Remote registers support two types: text (tail last N lines per file) and images (list file paths). A file-expansion endpoint resolves globs on the remote host.
 - Records persist selected log snippets with optional images; images are stored under `images/{profile_name}`.
   - Selecting images from the Logs page auto-imports the files via SFTP and attaches them to the new record.
-  - Exporting records to Excel embeds the first image in-cell and resizes it using `export` settings.
+  - Exporting records to Excel embeds all attached images, stacking them within the cell with margins using `export` settings.
 
 ## Constraints & Assumptions
 - No authentication; server binds to 127.0.0.1 by default.
