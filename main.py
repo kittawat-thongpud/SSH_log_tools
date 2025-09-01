@@ -43,9 +43,27 @@ from app.control_panel import ControlPanel
 
 
 def resource_path(rel: str) -> str:
-    """Support dev & PyInstaller onefile."""
-    base = getattr(sys, "_MEIPASS", os.path.abspath("."))
-    return os.path.join(base, rel)
+    """Resolve resource paths for dev and PyInstaller onefile.
+
+    In onefile mode we prefer files bundled in ``_MEIPASS`` but also check
+    alongside the executable so users can override resources (e.g. ``icon.ico``)
+    by placing them next to the built ``.exe``.  In dev mode we simply resolve
+    relative to the current working directory.
+    """
+    # When running from a PyInstaller bundle ``_MEIPASS`` points to the temp
+    # extraction dir.  First look there.
+    base = getattr(sys, "_MEIPASS", None)
+    if base:
+        path = os.path.join(base, rel)
+        if os.path.exists(path):
+            return path
+        # Then try beside the frozen executable (external overrides)
+        exe_dir = os.path.dirname(getattr(sys, "executable", ""))
+        path = os.path.join(exe_dir, rel)
+        if os.path.exists(path):
+            return path
+    # Fallback to current working directory (dev mode)
+    return os.path.join(os.path.abspath("."), rel)
 
 
 class TrayApp:
@@ -84,6 +102,11 @@ class TrayApp:
         """
         ui = self.cfg.get("ui", {}) if isinstance(self.cfg.get("ui"), dict) else {}
         raw_path = (ui.get("icon_path") or "").strip()
+        if not raw_path:
+            # If no icon specified, attempt to use a default icon.ico if present
+            default = resource_path("icon.ico")
+            if os.path.isfile(default):
+                raw_path = default
 
         def _mk_fallback() -> Image.Image:
             # minimal terminal style: dark bg + cyan circle + '>_' prompt
@@ -203,6 +226,8 @@ class TrayApp:
         try:
             self.log.info("Quitting application")
             self.stop_server()
+            if self._panel:
+                self._panel.close()
         finally:
             if self._icon:
                 self._icon.stop()
