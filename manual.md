@@ -30,6 +30,7 @@ Edit `config.json` to tune the application.
 
 ## Usage
 - Use the tray icon to start or stop the server and open the web UI.
+- Closing the Control Panel window hides it to the system tray; exit via the panel's Exit button or the tray menu.
 - Browse logs, search, and create records from the web UI.
 - Export records via `/api/records/export`; images are inserted into the configured column and resized to fit.
 

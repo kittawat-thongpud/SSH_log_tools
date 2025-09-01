@@ -710,12 +710,12 @@ def list_records():
     if start:
         ts = _parse_dt(start)
         if ts is not None:
-            conds.append("records.created_at>=?")
+            conds.append("records.event_time>=?")
             params.append(ts)
     if end:
         ts = _parse_dt(end)
         if ts is not None:
-            conds.append("records.created_at<=?")
+            conds.append("records.event_time<=?")
             params.append(ts + 86399)
     if conds:
         sql += " WHERE " + " AND ".join(conds)
@@ -769,12 +769,12 @@ def export_records():
     if start:
         ts = _parse_dt(start)
         if ts is not None:
-            conds.append("records.created_at>=?")
+            conds.append("records.event_time>=?")
             params.append(ts)
     if end:
         ts = _parse_dt(end)
         if ts is not None:
-            conds.append("records.created_at<=?")
+            conds.append("records.event_time<=?")
             params.append(ts + 86399)
     if conds:
         sql += " WHERE " + " AND ".join(conds)

@@ -16,7 +16,7 @@ Overview
 - Manage remote SSH/FTP profiles, run remote queries, and save records with images.
 - Tray menu: Start server, Stop server, Open Web UI, Exit.
 - Prevents multiple instances from running using a temporary file lock.
-- Closing the Control Panel window exits the application and stops the web server.
+- Closing the Control Panel window hides it to the system tray; use the Exit button or tray menu to quit the application and stop the web server.
 
 Quick Start
 1) Create a virtualenv and install requirements:
@@ -88,7 +88,9 @@ Logging
 Startup UI
 - Tray-only by default (no taskbar entry). Toggle panel with tray icon.
 - Panel shows server status and enables Start/Stop/Open actions.
-- Control via `ui.show_on_start`, `ui.message`, `ui.title`, `ui.icon_path` (.ico/.png).
+ - Control via `ui.show_on_start`, `ui.message`, `ui.title`, `ui.icon_path` (.ico/.png).
+ - If `ui.icon_path` is blank but an `icon.ico` file is placed next to the
+   executable, it will be used automatically for the tray and window icons.
 
 Excel Export
 - `/api/records/export` downloads an Excel file of records.

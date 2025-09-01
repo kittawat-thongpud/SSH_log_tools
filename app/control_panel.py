@@ -14,6 +14,7 @@ class ControlPanel:
     - Responsive button grid that wraps to next row
     - Author at the bottom with clickable email
     - NEW: Supports window/taskbar icon via icon_path (.ico on Windows, PNG/ICO on others)
+    - Closing the window hides it to the system tray; use the Exit button or tray menu to quit
     """
 
     def __init__(self,
@@ -69,12 +70,39 @@ class ControlPanel:
         except Exception:
             pass
 
+    def close(self) -> None:
+        """Destroy the panel window if it exists."""
+        root = self._root
+        if not root:
+            return
+        try:
+            root.after(0, root.destroy)
+        except Exception:
+            try:
+                root.destroy()
+            except Exception:
+                pass
+
     # ---------- helpers ----------
     @staticmethod
     def _resource_path(rel_path: str) -> str:
-        """Support dev & PyInstaller onefile path resolution."""
-        base = getattr(sys, "_MEIPASS", os.path.abspath("."))
-        return os.path.join(base, rel_path)
+        """Resolve resources for dev and PyInstaller onefile.
+
+        Works similarly to :func:`main.resource_path` by first checking the
+        extracted bundle (``_MEIPASS``) and then the directory containing the
+        executable so users can ship external overrides next to the built
+        application.
+        """
+        base = getattr(sys, "_MEIPASS", None)
+        if base:
+            path = os.path.join(base, rel_path)
+            if os.path.exists(path):
+                return path
+            exe_dir = os.path.dirname(getattr(sys, "executable", ""))
+            path = os.path.join(exe_dir, rel_path)
+            if os.path.exists(path):
+                return path
+        return os.path.join(os.path.abspath("."), rel_path)
 
     def _apply_window_icon(self, root: tk.Tk) -> None:
         """Apply window/taskbar icon using self._icon_path.
@@ -226,6 +254,13 @@ class ControlPanel:
                 except Exception:
                     pass
 
+        # hide instead of closing when the window "X" is pressed
+        def _hide_panel():
+            try:
+                root.withdraw()
+            except Exception:
+                pass
+
         btn_list = [
             mkbtn("Start", self._on_start, SUCCESS),
             mkbtn("Stop", self._on_stop, DANGER),
@@ -298,8 +333,8 @@ class ControlPanel:
                     pass
         tick()
 
-        # closing the window should exit the application cleanly
-        root.protocol("WM_DELETE_WINDOW", _exit_app)
+        # closing the window should simply hide the panel (system tray remains)
+        root.protocol("WM_DELETE_WINDOW", _hide_panel)
 
         try:
             root.mainloop()
