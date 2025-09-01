@@ -16,6 +16,7 @@ Overview
 - Manage remote SSH/FTP profiles, run remote queries, and save records with images.
 - Tray menu: Start server, Stop server, Open Web UI, Exit.
 - Prevents multiple instances from running using a temporary file lock.
+- Closing the Control Panel window exits the application and stops the web server.
 
 Quick Start
 1) Create a virtualenv and install requirements:

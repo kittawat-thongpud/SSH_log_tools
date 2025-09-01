@@ -242,7 +242,11 @@ class TrayApp:
                 self.open_panel()
         except Exception:
             pass
-        icon.run()
+        try:
+            icon.run()
+        finally:
+            # ensure the web server thread is stopped when the icon loop exits
+            self.stop_server()
 
 
 if __name__ == "__main__":
@@ -251,4 +255,10 @@ if __name__ == "__main__":
     except SingleInstanceError:
         print("Another instance of SSH Log Tools is already running.")
         sys.exit(1)
-    TrayApp().run()
+    try:
+        TrayApp().run()
+    finally:
+        try:
+            os.close(_lock_fd)
+        except Exception:
+            pass

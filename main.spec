@@ -36,6 +36,7 @@ if icon_src.exists():
 
 # ---------- Pick up ffi/vcruntime so _ctypes works ----------
 binaries = []
+datas = collect_data_files("app", includes=["templates/*", "static/*"])
 
 def add_bins(root: Path, patterns: list[str]):
     if not root or not root.exists():
@@ -57,7 +58,11 @@ a = Analysis(
     [str(PROJECT_ROOT / ENTRY)],
     pathex=[str(PROJECT_ROOT)],
     binaries=binaries,
+<<<<<<< ours
     datas=datas,              # bundle templates/static and icon.ico
+=======
+    datas=datas,              # bundle templates/static; keep config/icon external
+>>>>>>> theirs
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},

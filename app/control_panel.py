@@ -208,12 +208,22 @@ class ControlPanel:
                 bd=0, padx=12, pady=8, font=("Helvetica", 10, "bold")
             )
 
+        # unified exit handler to ensure clean shutdown of GUI and server
+        def _exit_app():
+            try:
+                self._on_exit()
+            finally:
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+
         btn_list = [
             mkbtn("Start", self._on_start, SUCCESS),
             mkbtn("Stop", self._on_stop, DANGER),
             mkbtn("Open Web UI", self._on_open_ui, PRIMARY),
             mkbtn("Open API Docs", self._on_open_docs, INFO),
-            mkbtn("Exit", self._on_exit, DARK),
+            mkbtn("Exit", _exit_app, DARK),
         ]
 
         # layout buttons responsively based on available width
@@ -280,13 +290,8 @@ class ControlPanel:
                     pass
         tick()
 
-        # Hide instead of destroy
-        def on_close():
-            try:
-                root.withdraw()
-            except Exception:
-                pass
-        root.protocol("WM_DELETE_WINDOW", on_close)
+        # closing the window should exit the application cleanly
+        root.protocol("WM_DELETE_WINDOW", _exit_app)
 
         try:
             root.mainloop()
