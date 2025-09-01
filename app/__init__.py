@@ -1,10 +1,28 @@
 from flask import Flask
 from .db import init_db
 import logging
+import os
+import sys
+
+
+def _base_path() -> str:
+    """Return base path for templates/static accommodating PyInstaller."""
+    # When bundled via PyInstaller the package lives under ``_MEIPASS``. The
+    # assets (templates/static) are collected into ``app`` inside that temp
+    # folder, so adjust the base accordingly.
+    mei = getattr(sys, "_MEIPASS", None)
+    if mei and os.path.isdir(os.path.join(mei, "app")):
+        return os.path.join(mei, "app")
+    return os.path.dirname(os.path.abspath(__file__))
 
 
 def create_app():
-    app = Flask(__name__, static_folder="static", template_folder="templates")
+    base = _base_path()
+    app = Flask(
+        __name__,
+        static_folder=os.path.join(base, "static"),
+        template_folder=os.path.join(base, "templates"),
+    )
     # Initialize local SQLite database
     try:
         init_db()

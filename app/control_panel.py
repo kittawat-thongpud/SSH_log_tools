@@ -82,6 +82,11 @@ class ControlPanel:
                 root.destroy()
             except Exception:
                 pass
+        if self._thread and self._thread.is_alive():
+            try:
+                self._thread.join(timeout=1)
+            except Exception:
+                pass
 
     # ---------- helpers ----------
     @staticmethod
@@ -246,13 +251,12 @@ class ControlPanel:
 
         # unified exit handler to ensure clean shutdown of GUI and server
         def _exit_app():
+            # run potentially blocking shutdown logic off the Tk thread
+            threading.Thread(target=self._on_exit, daemon=True).start()
             try:
-                self._on_exit()
-            finally:
-                try:
-                    root.destroy()
-                except Exception:
-                    pass
+                root.destroy()
+            except Exception:
+                pass
 
         # hide instead of closing when the window "X" is pressed
         def _hide_panel():

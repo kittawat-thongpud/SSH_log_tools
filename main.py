@@ -223,14 +223,13 @@ class TrayApp:
         self._panel.show()
 
     def quit(self, icon=None, item=None):
-        try:
-            self.log.info("Quitting application")
-            self.stop_server()
-            if self._panel:
-                self._panel.close()
-        finally:
-            if self._icon:
-                self._icon.stop()
+        self.log.info("Quitting application")
+        if self._panel:
+            self._panel.close()
+            self._panel = None
+        self.stop_server()
+        if self._icon:
+            self._icon.stop()
 
     # ------------- tray menu -------------
     def build_menu(self):
