@@ -119,22 +119,30 @@ class ControlPanel:
         self._root = tk.Tk()
         root = self._root
         root.title(self._title)
+        
+        # --- Fixed size & center on screen ---
+        WIDTH, HEIGHT = 520, 320
         try:
-            # small quality-of-life scaling for HiDPI on Windows
             if os.name == "nt":
-                root.tk.call('tk', 'scaling', 1.25)
+                root.tk.call('tk', 'scaling', 1.25)  # optional HiDPI tweak
         except Exception:
             pass
+
+         # center window
+        root.update_idletasks()
+        sw = root.winfo_screenwidth()
+        sh = root.winfo_screenheight()
+        x = (sw - WIDTH) // 2
+        y = (sh - HEIGHT) // 2
+        root.geometry(f"{WIDTH}x{HEIGHT}+{x}+{y}")
+
+        # lock size (no resize)
+        root.resizable(False, False)
+        root.minsize(WIDTH, HEIGHT)
+        root.maxsize(WIDTH, HEIGHT)
 
         # apply window icon (title bar / taskbar)
         self._apply_window_icon(root)
-
-        try:
-            root.geometry("520x320")
-            root.resizable(True, False)
-        except Exception:
-            pass
-
         # Hint the OS to not show a taskbar button for this window (tray-only UX)
         try:
             ws = root.tk.call('tk', 'windowingsystem')
