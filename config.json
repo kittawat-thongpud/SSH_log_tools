@@ -14,7 +14,7 @@
     "message": "App is begin!!",
     "title": "SSH Log Tools",
     "hide_console": false,
-    "icon_path": "",
+    "icon_path": "icon.ico",
     "author_name": "Kittawat Thongpud",
     "author_email": "Thongpud.k@gmail.com"
   },

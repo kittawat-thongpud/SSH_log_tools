@@ -5,6 +5,33 @@ import threading
 import webbrowser
 import logging
 from typing import Optional
+import tempfile
+
+
+class SingleInstanceError(RuntimeError):
+    """Raised when another instance of the app is already running."""
+    pass
+
+
+def acquire_app_lock(name: str = "ssh_log_tools.lock"):
+    """Ensure only one running instance by locking a file in temp dir."""
+    lock_path = os.path.join(tempfile.gettempdir(), name)
+    if os.name == "nt":
+        import msvcrt
+        try:
+            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            return fd
+        except OSError as e:
+            raise SingleInstanceError("Another instance is already running") from e
+    else:
+        import fcntl
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT)
+        try:
+            fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return fd
+        except OSError as e:
+            raise SingleInstanceError("Another instance is already running") from e
 
 from PIL import Image, ImageDraw, ImageOps
 import pystray
@@ -219,4 +246,9 @@ class TrayApp:
 
 
 if __name__ == "__main__":
+    try:
+        _lock_fd = acquire_app_lock()
+    except SingleInstanceError:
+        print("Another instance of SSH Log Tools is already running.")
+        sys.exit(1)
     TrayApp().run()

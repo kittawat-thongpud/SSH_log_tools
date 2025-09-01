@@ -15,6 +15,7 @@ Overview
 - Browse, tail, and search SSH/log files registered in `config.json`.
 - Manage remote SSH/FTP profiles, run remote queries, and save records with images.
 - Tray menu: Start server, Stop server, Open Web UI, Exit.
+- Prevents multiple instances from running using a temporary file lock.
 
 Quick Start
 1) Create a virtualenv and install requirements:
