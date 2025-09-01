@@ -58,11 +58,7 @@ a = Analysis(
     [str(PROJECT_ROOT / ENTRY)],
     pathex=[str(PROJECT_ROOT)],
     binaries=binaries,
-<<<<<<< ours
-    datas=datas,              # bundle templates/static and icon.ico
-=======
     datas=datas,              # bundle templates/static; keep config/icon external
->>>>>>> theirs
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},
