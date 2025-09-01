@@ -227,7 +227,8 @@ class TrayApp:
         if self._panel:
             self._panel.close()
             self._panel = None
-        self.stop_server()
+        if self.server.is_running():
+            self.stop_server()
         if self._icon:
             self._icon.stop()
 
@@ -270,7 +271,8 @@ class TrayApp:
             icon.run()
         finally:
             # ensure the web server thread is stopped when the icon loop exits
-            self.stop_server()
+            if self.server.is_running():
+                self.stop_server()
 
 
 if __name__ == "__main__":
